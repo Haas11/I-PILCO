@@ -94,10 +94,21 @@ a       = simOut.get('a');      % Actions       [H  x  nU]
 L       = simOut.get('L');      % cost          [H  x  1]
 ref     = simOut.get('ref');    % reference     [H  x  6]
 
-x = squeeze(x)';    % reshape due to odd simulink quirk
+x = squeeze(x);    % reshape due to odd simulink quirk
 ref = squeeze(ref);
-a = squeeze(a)';
-latent = squeeze(latent)';
+a = squeeze(a);
+latent = squeeze(latent);
+
+if size(x,2) ~= nX
+    x = x';
+end
+if size(a,2) ~= nU
+    a = a';
+end
+if size(latent,2) ~= nX+nU
+    latent = latent';
+end
+
 % L = squeeze(L);
 
 samPerSec = ceil(1/dt);
@@ -105,7 +116,7 @@ Ha = size(x,1);
 if Ha ~= H+1            % if slight mismatch
    H1 = Ha-1;           % set straight 
    if H1 < H-5          % if simulation aborted
-       H = max(H1 - 2*samPerSec,1);     % delete last 2 seconds of data
+       H = max(H1 - 0.5*samPerSec,1);     % delete last 1 second of data
    else 
        H = H1;          % use full dataset
    end
