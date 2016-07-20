@@ -22,7 +22,7 @@ figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
     clf(figHandles(i));
 end
-settings_conLin;                  % load scenario-specific settings
+settings_S;                  % load scenario-specific settings
 ep=num2str(cost.ep);
 expl=num2str(cost.expl);
 basename = strcat('_',date,'_','conLin-','_ep-0p',ep(strfind(ep,'.')+1:end),...

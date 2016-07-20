@@ -24,7 +24,7 @@ end
     my_rollout(mu0, policy, HH, plant, robot); %#ok<*IJCL>
 x = [x; xx]; y = [y; yy]; 
     robs = [mu0(1,dyno); rr(:,ref_select)];  rrr = rr(:,ref_select);
-    rrr(:,difi) = rr(:,ref_select(difi)) - robs(1:length(rr),difi);
+    rrr(:,difi) = rr(:,ref_select(difi)) - robs(1:size(rr,1),difi);
     r = [r; rrr];      %#ok<*AGROW> % augment training sets for dynamics model
 realAcumCost(j+J) = sum(realCost{j+J});                 % Accumulated cost
 realAcumCost2{j+J}(1) = sum(realCost{j+J});                 % Accumulated cost
@@ -115,13 +115,28 @@ if plotting.verbosity > 0
         ldyno = length(dyno);
         for i=1:ldyno       % plot the rollouts on top of predicted error bars
             subplot(ceil(ldyno/sqrt(ldyno)),ceil(sqrt(ldyno)),i); hold on;
+            if compareToFullModel && numel(gpmodel.induce) ~= 0
+                    errorbar(0:length(Mfull{j}(i,:))-1, Mfull{j}(i,:), ...
+                    2*sqrt(squeeze(Sfull{j}(i,i,:))), 'y');   
+            end
             errorbar( 0:length(M{j}(i,:))-1, M{j}(i,:), ...
                 2*sqrt(squeeze(Sigma{j}(i,i,:))) );
-%             for ii=1:Ntest
-%                 stairs( 0:size(testLat{ii}(:,dyno(i)),1)-1, testLat{ii}(:,indices(dyno(i))), 'g' );        % recorded latent states in multiple robustness test-rollouts
-%             end
-%             stairs( 0:size(latent{j+J}(:,dyno(i)),1)-1, latent{j+J}(:,indices(dyno(i))),'r');      % recorded latent states in apply_controller roll-out
+
+            for ii=1:Ntest
+                stairs( 0:size(testLat{ii}(:,dyno(i)),1)-1, testLat{ii}(:,indices(dyno(i))), 'g' );        % recorded latent states in multiple robustness test-rollouts
+            end
+            stairs( 0:size(latent{j+J}(:,dyno(i)),1)-1, latent{j+J}(:,indices(dyno(i))),'r');      % recorded latent states in apply_controller roll-out
+            if i <= length(dyni)
+                plot(zeros(nii,1),dynmodel.induce(:,i),'kx');
+            end
             title(dynoTitles{i});
+            if i==1
+                if compareToFullModel && numel(dynmodel.induce) ~= 0
+                    legend('Full Model','Sparse Model','Trial','Test','Inputs','Location','Best');
+                else
+                    legend('Sparse Model','Trial','Test','Inputs','Location','Best');
+                end                   
+            end
             axis tight
         end
         drawnow;

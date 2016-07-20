@@ -38,6 +38,14 @@ gpCheck = 0;
 [M{j}, Sigma{j}] = my_pred(policy, plant, dynmodel, mu0Sim', S0Sim, H);
 [fantasy.mean{j}, fantasy.std{j}] =  my_calcCost(cost, M{j}, Sigma{j}, policy, plant);
 
+if compareToFullModel && numel(dynmodel.induce) ~= 0
+    dynmodel.full = true;   % force full model predictions (gp0)
+    [Mfull{j}, Sfull{j}] = my_pred(policy, plant, dynmodel, mu0Sim', S0Sim, H);     % compute trajectory based on full GP model
+    dynmodel.full = false;  % revert to sparse for next iter. (gp1d)
+    if j==10
+        compareToFullModel = false;     % stop comparison after 10 trials (saves time)
+    end
+end
 
 %% Derivative Checks [DEBUG]
 if diffChecks       % perform derivate checks [DEBUG]
