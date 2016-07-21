@@ -67,6 +67,8 @@ for jj = 1:J
     if insertSuccess(jj) ~= 0;
         REF_DIFF = rrr;
         dynmodel.ref = rrr;
+    else
+        warning('Initial rollout aborted. Complete reference unavailable.');
     end
     
     if plotting.verbosity > 0
@@ -139,7 +141,7 @@ fprintf('\nPILCO Learning started\n--------------------------------\n');
 jj=J;
 initRollout = 0;
 constMean = 0;
-for j = 1:N
+for j = 4:N
     my_trainDynModel;       % train (GP) dynamics model
     my_learnPolicy;         % update policy
     my_applyController;     % apply controller to system
@@ -147,7 +149,6 @@ for j = 1:N
     disp(['\nControlled trial # ' num2str(j)]);
     disp('Insertion successes: '); disp(insertSuccess);
 end
-% end
 %%
 figure;
 for i=1:N+J

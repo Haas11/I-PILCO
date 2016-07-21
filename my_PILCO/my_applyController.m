@@ -115,7 +115,7 @@ if plotting.verbosity > 0
         ldyno = length(dyno);
         for i=1:ldyno       % plot the rollouts on top of predicted error bars
             subplot(ceil(ldyno/sqrt(ldyno)),ceil(sqrt(ldyno)),i); hold on;
-            if compareToFullModel && numel(gpmodel.induce) ~= 0
+            if compareToFullModel && numel(dynmodel.induce) ~= 0
                     errorbar(0:length(Mfull{j}(i,:))-1, Mfull{j}(i,:), ...
                     2*sqrt(squeeze(Sfull{j}(i,i,:))), 'y');   
             end
@@ -126,15 +126,15 @@ if plotting.verbosity > 0
                 stairs( 0:size(testLat{ii}(:,dyno(i)),1)-1, testLat{ii}(:,indices(dyno(i))), 'g' );        % recorded latent states in multiple robustness test-rollouts
             end
             stairs( 0:size(latent{j+J}(:,dyno(i)),1)-1, latent{j+J}(:,indices(dyno(i))),'r');      % recorded latent states in apply_controller roll-out
-            if i <= length(dyni)
+            if i <= length(dyni) && numel(dynmodel.induce) ~= 0
                 plot(zeros(nii,1),dynmodel.induce(:,i),'kx');
             end
             title(dynoTitles{i});
             if i==1
                 if compareToFullModel && numel(dynmodel.induce) ~= 0
-                    legend('Full Model','Sparse Model','Trial','Test','Inputs','Location','Best');
+                    legend('Full Model','Sparse Model','Test','Trial','Sparse Inputs','Location','Best');
                 else
-                    legend('Sparse Model','Trial','Test','Inputs','Location','Best');
+                    legend('Sparse Model','Test','Trial','Sparse Inputs','Location','Best');
                 end                   
             end
             axis tight

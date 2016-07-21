@@ -45,10 +45,10 @@ function [M, S, V, dMdm, dSdm, dVdm, dMds, dSds, dVds] = my_gp1d(gpmodel, m, s)
 %% Code
 
 % If no derivatives are required, call gp1
-if nargout < 4; [M S V] = gp1(gpmodel, m, s); return; end
+if nargout < 4; [M, S, V] = gp1(gpmodel, m, s); return; end
 % If there are no inducing inputs, back off to gp0d (no sparse GP required)
-if numel(gpmodel.induce) == 0 || dynmodel.full
-  [M S V dMdm dSdm dVdm dMds dSds dVds] = gp0d(gpmodel, m, s); return;
+if numel(gpmodel.induce) == 0 || (isfield(gpmodel,'full') && gpmodel.full)
+  [M, S, V, dMdm, dSdm, dVdm, dMds, dSds, dVds] = gp0d(gpmodel, m, s); return;
 end
 
 % 1) If necessary: re-compute cached variables
@@ -58,7 +58,7 @@ ridge = 1e-6;                        % jitter to make matrix better conditioned
 E = size(gpmodel.targets,2);         % number of examples and number of outputs
 X = gpmodel.hyp; input = gpmodel.inputs; targets = gpmodel.targets;
 
-[np pD pE] = size(gpmodel.induce);     % number of pseudo inputs per dimension
+[np, pD, pE] = size(gpmodel.induce);     %#ok<ASGLU> % number of pseudo inputs per dimension
 pinput = gpmodel.induce;                                   % all pseudo inputs
 
 if numel(X) ~= numel(oldX) || isempty(iK) || isempty(iK2) || ... % if necessary
@@ -93,7 +93,7 @@ if numel(X) ~= numel(oldX) || isempty(iK) || isempty(iK2) || ... % if necessary
 end
 
 k = zeros(np,E); M = zeros(E,1); V = zeros(D,E); S = zeros(E);       % allocate
-dMds = zeros(E,D,D); dSdm = zeros(E,E,D); r = zeros(1,D);
+dMds = zeros(E,D,D); dSdm = zeros(E,E,D); r = zeros(1,D); %#ok<PREALL>
 dSds = zeros(E,E,D,D); dVds = zeros(D,E,D,D); T = zeros(D);
 inp = zeros(np,D,E);
 

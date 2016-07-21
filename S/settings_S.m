@@ -106,7 +106,7 @@ angi    = [];                                           % angi  indicies for var
 dyno    = [7 8 13 14 19];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
 dyni    = [1 2 3 4];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
 difi    = [1 2 3 4];                              % difi  indicies for training targets that are differences                      (subset of dyno)
-poli    = [1 2 3 4];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
+poli    = [1 2];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
 refi    = [1 2 3 4];                                 % indices for which to encode a reference as  prior mean
 REF_PRIOR  = 1;
 ref_select = [1 2 7 8 13];                    % indices of reference corresponding to dyno    [xe dxe F]
@@ -246,6 +246,7 @@ cost.sub{2}.losi 	= 5;                            % indicies for force
 cost.sub{2}.target  = 0;                            % target state
 cost.sub{2}.width   = 10;                           % Weight matrix
 cost.sub{2}.angle   = plant.angi;                   % index of angle (for cost function)
+
 %% 6. Set up the GP dynamics model structure
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions
 dynmodel.train  = @my_train;                % function to train dynamics model
@@ -254,12 +255,14 @@ dynmodel.induce = zeros(nii,0,1);           % shared/individual inducing inputs 
 noisyInputs     = false;                    % if true -> train/regress w/ assumed input noise hyperparams
 inputNoiseSTD   = [ones(1,length(dyno))*0.01^2, ones(1,length(policy.maxU))*1e-10.^2];      % starting estimate for the noisy input GP training
 dynmodel.parallel = false;                  % train individual target dimensions in parellel
-trainOpt        = [200 300];                % max. number of line searches [full, sparse]
+dynmodel.full   = true;
 compareToFullModel = true;                  % Computes the state trajectory of the full model for comparison to sparse approximation
+trainOpt        = [200 300];                % max. number of line searches [full, sparse]
+
 %% 7. Parameters for policy optimization
 opt.fh = 1;
 opt.method = 'BFGS';                    % 'BFGS' (default), 'LBFGS' (x>1000), 'CG'
-opt.length = 50;                        % (+): max. number of line searches
+opt.length = 75;                        % (+): max. number of line searches
 opt.MFEPLS = 25;                        % max. number of function evaluations per linesearch
 % opt.MSR = 100;                        % max. slope ratio (default=100)
 
