@@ -14,29 +14,34 @@
 % # Save the data
 
 %% 1. Generate trajectory rollout given the current policy
-if isfield(plant,'constraint')    
+if isfield(plant,'constraint')
     HH = maxH;
 else
     HH = H;
 end
 
-[xx, yy, realCost{j+J}, latent{j+J}, rr] = ...
-    my_rollout(mu0, policy, HH, plant, robot); %#ok<*IJCL>
-x = [x; xx]; y = [y; yy]; 
-    robs = [mu0(1,dyno); rr(:,ref_select)];  rrr = rr(:,ref_select);
-    rrr(:,difi) = rr(:,ref_select(difi)) - robs(1:size(rr,1),difi);
-    r = [r; rrr];      %#ok<*AGROW> % augment training sets for dynamics model
+if KUKA
+    [xx, yy, realCost{jj}, latent{jj}, rr] = ...
+        my_iiwaRollout(mu0, policy, HH, plant, robot);  % Experiment
+else
+    [xx, yy, realCost{j+J}, latent{j+J}, rr] = ...
+        my_rollout(mu0, policy, HH, plant, robot);      % Simulation
+end
+x = [x; xx]; y = [y; yy];
+robs = [mu0(1,dyno); rr(:,ref_select)];  rrr = rr(:,ref_select);
+rrr(:,difi) = rr(:,ref_select(difi)) - robs(1:size(rr,1),difi);
+r = [r; rrr];      %#ok<*AGROW> % augment training sets for dynamics model
 realAcumCost(j+J) = sum(realCost{j+J});                 % Accumulated cost
 realAcumCost2{j+J}(1) = sum(realCost{j+J});                 % Accumulated cost
 
 % determine if rollout aborted, failed or successful:
 
-    if size(latent{j+J},1) > H-5
-        insertSuccess(j+J) = 1;                         %#ok<*SAGROW> not aborted
-        if abs(mean(latent{j+J}(end-5:end,dyno(1)) - (xhole(1)+0.05))) < 0.01;
-            insertSuccess(j+J) = 2;                     % successful insertion
-        end
+if size(latent{j+J},1) > H-5
+    insertSuccess(j+J) = 1;                         %#ok<*SAGROW> not aborted
+    if abs(mean(latent{j+J}(end-5:end,dyno(1)) - (xhole(1)+0.05))) < 0.01;
+        insertSuccess(j+J) = 2;                     % successful insertion
     end
+end
 
 
 % 2. Make many rollouts to test the controller quality / robustness?
@@ -55,10 +60,10 @@ if plotting.verbosity > 0
     end
     hold on;
     stairs(1:length(realCost{J+j}),realCost{J+j},'r'); hold on;
-     for ii=1:Ntest
-         stairs(1:length(testCost{ii}),testCost{ii},'g');
-         hold on;
-     end
+    for ii=1:Ntest
+        stairs(1:length(testCost{ii}),testCost{ii},'g');
+        hold on;
+    end
     title('Predicted (uncertain) & Rollout (deterministic) Immediate Cost');
     xlabel('Time [s]');     ylabel('Immediate Cost');
     legend('predicted','test','verifications');
@@ -116,12 +121,12 @@ if plotting.verbosity > 0
         for i=1:ldyno       % plot the rollouts on top of predicted error bars
             subplot(ceil(ldyno/sqrt(ldyno)),ceil(sqrt(ldyno)),i); hold on;
             if compareToFullModel && numel(dynmodel.induce) ~= 0
-                    errorbar(0:length(Mfull{j}(i,:))-1, Mfull{j}(i,:), ...
-                    2*sqrt(squeeze(Sfull{j}(i,i,:))), 'y');   
+                errorbar(0:length(Mfull{j}(i,:))-1, Mfull{j}(i,:), ...
+                    2*sqrt(squeeze(Sfull{j}(i,i,:))), 'y');
             end
             errorbar( 0:length(M{j}(i,:))-1, M{j}(i,:), ...
                 2*sqrt(squeeze(Sigma{j}(i,i,:))) );
-
+            
             for ii=1:Ntest
                 stairs( 0:size(testLat{ii}(:,dyno(i)),1)-1, testLat{ii}(:,indices(dyno(i))), 'g' );        % recorded latent states in multiple robustness test-rollouts
             end
@@ -135,7 +140,7 @@ if plotting.verbosity > 0
                     legend('Full Model','Sparse Model','Test','Trial','Sparse Inputs','Location','Best');
                 else
                     legend('Sparse Model','Test','Trial','Sparse Inputs','Location','Best');
-                end                   
+                end
             end
             axis tight
         end
