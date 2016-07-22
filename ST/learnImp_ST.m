@@ -22,7 +22,7 @@ figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
     clf(figHandles(i));
 end
-settings_trajStiff_V2;                  % load scenario-specific settings
+settings_ST;                  % load scenario-specific settings
 ep=num2str(cost.ep);
 expl=num2str(cost.expl);
 basename = strcat('traj_',date,'_','conGP-','_ep-0p',ep(strfind(ep,'.')+1:end),...

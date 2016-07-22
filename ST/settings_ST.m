@@ -105,13 +105,13 @@ n=3;
 odei = 1:1:2*n+6;
 augi    = [];                                           % augi  indicies for variables augmented to the ode variables
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
-dyno    = [7 8 12 13 14 18 19];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
-dyni    = [1 2 3 4 5 6];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
-difi    = [1 2 3 4 5 6];                              % difi  indicies for training targets that are differences                      (subset of dyno)
-poli    = [1 2 3];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
+dyno    = [7 8 13 14 19];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
+dyni    = [1 2 3 4 5];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
+difi    = [];                              % difi  indicies for training targets that are differences                      (subset of dyno)
+poli    = [1 2];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
 refi    = [1 2 3 4 5 6];                                 % indices for which to encode a reference as  prior mean
 REF_PRIOR  = 0;
-ref_select = [1 2 6 7 8 12 13];                    % indices of reference corresponding to dyno    [xe dxe F]
+ref_select = [1 2 7 8 13];                    % indices of reference corresponding to dyno    [xe dxe F]
 
 dynoTitles = stateNames(indices(dyno));
 actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]', 'ref_x','ref_y'};%, 'Kp_{rot} [Nm/rad]'};
@@ -202,7 +202,7 @@ plant.difi = difi;
 plant.refi = refi;
 plant.prop = @my_propagated;   % handle to function that propagates state over time
 plant.simconstraint = @constraint_check;
-plant.rollout_model = 'AltEulerAngImpedanceControl_trajLearning';
+plant.rollout_model = 'IPILCO_relativeEuler_ST';
 plant.indices = indices;
 
 %% 4. Set up the policy structure
@@ -223,7 +223,7 @@ Du = length(policy.maxU);
 seedMatrix = 1:1:J*length(policy.impIdx);
 seedMatrix = reshape(seedMatrix,J,[]);
 
-nc = 15;
+nc = 50;
 scale_factor = (policy.maxU.*(3/2));
 scaled_targets = targets./scale_factor;
 scaled_var = varTargets./scale_factor;
@@ -266,7 +266,7 @@ noisyInputs     = false;                    % if true -> train/regress w/ assume
 inputNoiseSTD   = [ones(1,length(dyno))*0.01^2, ones(1,length(policy.maxU))*1e-10.^2];      % starting estimate for the noisy input GP training
 dynmodel.parallel = false;                  % train individual target dimensions in parellel
 trainOpt        = [200 300];                % max. number of line searches [full, sparse]
-
+compareToFullModel = true;
 %% 7. Parameters for policy optimization
 opt.fh = 1;
 opt.method = 'BFGS';                    % 'BFGS' (default), 'LBFGS' (x>1000), 'CG'

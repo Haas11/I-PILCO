@@ -141,7 +141,7 @@ fprintf('\nPILCO Learning started\n--------------------------------\n');
 jj=J;
 initRollout = 0;
 constMean = 0;
-for j = 4:N
+for j = 1:N
     my_trainDynModel;       % train (GP) dynamics model
     my_learnPolicy;         % update policy
     my_applyController;     % apply controller to system
