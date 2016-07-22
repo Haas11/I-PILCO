@@ -42,7 +42,7 @@ if compareToFullModel && numel(dynmodel.induce) ~= 0
     dynmodel.full = true;   % force full model predictions (gp0)
     [Mfull{j}, Sfull{j}] = my_pred(policy, plant, dynmodel, mu0Sim', S0Sim, H);     % compute trajectory based on full GP model
     dynmodel.full = false;  % revert to sparse for next iter. (gp1d)
-    if j==10
+    if j==15
         compareToFullModel = false;     % stop comparison after 10 trials (saves time)
     end
 end
