@@ -30,8 +30,8 @@ handles.r = robotics.Rate(handles.frequency);
 handles.r.OverrunAction = 'slip';
 
 try
-     [data, handles] = iiwaRolloutStart(handles, Href);          % perform rollout:
-    %[time, data, handles] = iiwaRolloutStart1(handles, Href1);          % perform rollout:
+%     [data, handles] = iiwaRolloutStart(handles, Href);          % perform rollout:
+    [time, data, handles] = iiwaRolloutStart1(handles, Href1);          % perform rollout:
     
     rosshutdown;
     

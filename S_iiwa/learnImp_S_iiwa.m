@@ -22,7 +22,7 @@ figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
     clf(figHandles(i));
 end
-settings_S;                  % load scenario-specific settings
+settings_S_iiwa;                  % load scenario-specific settings
 ep=num2str(cost.ep);
 expl=num2str(cost.expl);
 basename = strcat('_',date,'_','conLin-','_ep-0p',ep(strfind(ep,'.')+1:end),...
@@ -38,8 +38,10 @@ fprintf('\nPerforming initial rollouts...\n');
 initRollout = 1;    %#ok<*NASGU>     Random walk (OU process)
 constMean = 1;      % Gaussian inputs w/ constant mean
 for jj = 1:J
+    
     [xx, yy, realCost{jj}, latent{jj}, rr] = ...
-        my_iiwaRollout(mu0, policy, H, plant, robot, a_init);   
+        my_iiwaRollout(policy, plant, H, Href, a_init);   
+    
     realAcumCost(jj) = sum(realCost{jj});   
     x = [x; xx]; y = [y; yy]; 
     robs = [mu0(1,dyno); rr(:,ref_select)];  rrr = rr(:,ref_select);

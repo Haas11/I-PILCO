@@ -1,7 +1,7 @@
 tool_link = 'peg_link_ee_kuka';
 
 T = 10;
-dt = 0.15;
+dt = 0.10;
 
 t_01 = T/5/dt;
 t_12 = T/5/dt;
@@ -24,7 +24,6 @@ Tcart4 = ctraj(T3, T3, t_33);
 Ttot = cat(3,Tcart1,Tcart2,Tcart3,Tcart4,Tcart4);
 
 t = 0:dt:T-dt;
-%Hd = timeseries(Ttot(:,:,1:length(t)),t);
 
 Href = Ttot;
 

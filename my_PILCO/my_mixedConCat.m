@@ -61,7 +61,10 @@ M(i) = m;
 S = zeros(F);
 S(i,i) = s;
 
-if nargout < 4   % without derivatives
+if nargout == 1                 % actions during RT rollout
+    M(j) = con(policy,m,s);
+    [M, ~ , ~] = sat(M, S, j, maxU, policy);         % compute squashed control signal u
+elseif nargout < 4   % without derivatives
     [M(j), S(j,j), Q] = con(policy, m, s);  % compute unsquashed control signal v    
     q = S(i,i)*Q; S(i,j) = q; S(j,i) = q';  % compute joint covariance S=cov(x,v)
     [M, S, R] = sat(M, S, j, maxU, policy);         % compute squashed control signal u

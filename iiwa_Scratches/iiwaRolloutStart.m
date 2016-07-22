@@ -126,9 +126,7 @@ try
         handles.config.Mode.CartesianStiffness.Stiffness.A = 100;
         handles.config.Mode.CartesianStiffness.Stiffness.B = 100;
         handles.config.Mode.CartesianStiffness.Stiffness.C = 100;
-        
-               
-        
+                               
         % send service request
         response = call(handles.client, handles.config, 'Timeout', 0.2);
         if response.Success

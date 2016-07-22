@@ -29,27 +29,27 @@
 %  1  X              x-position end-effector in world frame
 %  2  Y              y-position end-effector in world frame
 %  3  Z              z-position end-effector in world frame
-%  4  Alpha
-%  5  Gamma
-%  6  Phi            angle around z
+% 4  Alpha
+% 5  Gamma
+% 6  Phi            angle around z
 
 % 7  dX             x-velocity end-effector in world frame
 % 8  dY             y-velocity end-effector in world frame
 % 9  dZ             z-velocity end-effector in world frame
 % 10  dAlpha         Alpha-angular velocity  in world frame
-% 11  dGamma         Gamma-angular velocity  in world frame
-% 12  dPhi           Phi-angular velocity    in world frame
+% 12  dGamma         Gamma-angular velocity  in world frame
+% 1  dPhi           Phi-angular velocity    in world frame
 
-% 13  Fx             Cartesian x-force in world frame
-% 14  Fy             Cartesian y-force in world frame
-% 15  Fz             Cartesian z-force in world frame
-% 16  Fa             Cartesian alpha torque in world frame
-% 17  Fg             Cartesian gamma torque in world frame
-% 18  Fp             Cartesian phi   torque in world frame
+% 19  Fx             Cartesian x-force in world frame
+% 20  Fy             Cartesian y-force in world frame
+% 21  Fz             Cartesian z-force in world frame
+% 22  Fa             Cartesian alpha torque in world frame
+% 23  Fg             Cartesian gamma torque in world frame
+% 24  Fp             Cartesian phi   torque in world frame
 
-% 19  Kp_x           Cartesian stiffness in x
-% 20  Kp_y           Cartesian stiffness in y
-
+% 25  Kp_x           Cartesian stiffness in x
+% 26  Kp_y           Cartesian stiffness in y
+%
 %% High-Level Steps
 % # Define state and important indices
 % # Set up scenario
@@ -60,20 +60,35 @@
 % # Parameters for policy optimization
 % # Plotting verbosity
 % # Some array initializations
+% 
+% cost.ep = epp(count);
+% cost.expl = expll(count);
 
 %% Inits
 warning('on','all');
 rng(0,'twister');
 format short; format compact;
-stateNames = {'xe_x','xe_y','xe_z','alpha','gamma','phi','dxe_x','dxe_y','dxe_z',...
-    'dalpha','dgamma','dphi','Fx','Fy','Fz','Tx','Ty','Tz'};
-global REF_PRIOR 
+global diffChecks REF_PRIOR 
+global diffTol conCheck gpCheck propCheck valueCheck satCheck lossCheck checkFailed
+diffChecks = 0;  diffTol   = 1e-3;  checkFailed = 0;
+conCheck   = 0;  gpCheck   = 0;     propCheck   = 0;    % GP check = very heavy!
+valueCheck = 1;  satCheck  = 0;     lossCheck   = 0;
+stateNames = {'theta1','theta1','theta1','dtheta1','dtheta1','dtheta1',...
+    'xe_x','xe_y','xe_z','alpha','gamma','phi','dxe_x','dxe_y','dxe_z',...
+    'dalpha','dgamma','dphi','Fx','Fy','Fz','Tx','Ty','Tz','t'};
+
+if diffChecks
+    fprintf('==================================\n'); %#ok<UNRCH>
+    fprintf('DERIVATIVE CHECKS ENABLED! [DEBUG]\n');
+    fprintf('Ctrl: %1i, GP: %1i, Prop: %i, Value: %1i, Sat: %1i, Loss: %1i',...
+        conCheck, gpCheck, propCheck, valueCheck, satCheck, lossCheck);
+    fprintf('\n==================================\n\n');
+end
 
 opt.verbosity = 3;                      % optimization verbosity      [0-3]
 plotting.verbosity = 2;                 % plotting verbosity          [0-3]
-%% 1. Define state indices
-KUKA = true;
 
+%% 1. Define state indices
 stateLength = 24;
 indices = 1:1:stateLength;
 n=7;
@@ -101,11 +116,35 @@ run init_3Lbot.m
 
 T = 10.0;                % [s] Rollout time
 t_pilco = (0:dt_pilco:T)';
+peg = 1;                 % [bool]  peg insertion trajectory
+xhole = [0.5, 0.3, 0];   % center hole location [x, y, phi/z]
+xc    = [0.45, 10, 10, 10, 10, 10]';  % [m] environment constraint location
+x0    = [0.4 0 0];
+T0    = transl(x0);      % start pose end-effector
+T11   = transl([0.5 0.02 0]);
+[mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td]...
+    = genTrajectory(robot, peg, T0, T11, xhole, xc, T, dt);
+t = 0:dt:T;
+Hd = timeseries(Td(:,:,1:length(t)),t);
+T_e_init = cardatol(tr2rpy(Hd.data(:,:,1)),1,2,3);      %xyz
 
-genKUKATrajectory;
+initPredVar = 1e-4;
+mu0Sim = mu0(indices(dyno));
+S0Sim = diag(ones(1,length(dyno)).*initPredVar);
 
-mu0Sim = 
+fprintf('\nFinal transformation: \nH^0_n(T) = \n\n');
+disp(Hf);
 
+% Environment:
+Kp_env = [5e3, 1e3, 0, 0, 0, 0];              %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
+Kd_env = [200, 50, 0, 0, 0, 0];              %[Ns/m] damping
+fprintf('\nEnvironment stiffness \t= \t %6.2f [N/m]\n', Kp_env(1));
+fprintf('Environment damping \t= \t %6.2f [Ns/m]\n',  Kd_env(1));
+fprintf('X-location of environment = \t %6.2f [Ns/m]\n',  xc(1));
+fprintf('Hole location \t\t = \t')
+disp(xhole)
+
+% Additional:
 H = ceil(T/dt_pilco);              % no. of timesteps per rollout
 N = 30;                            % no. of controller optimizations
 Ntest = 1;                         % no. of roll outs to test controller quality
@@ -137,9 +176,17 @@ plant.dyni = dyni;
 plant.difi = difi;
 plant.refi = refi;
 plant.prop = @my_propagated;   % handle to function that propagates state over time
+plant.simconstraint = @constraint_check;
+plant.rollout_model = 'IPILCO_relativeRPY_S';
 plant.indices = indices;
 
 %% 4. Set up the policy structure
+
+% Linear Controller:
+% policy.fcn = @(policy,m,s)my_mixedConCat(@my_conlin,@my_mixedGSat,policy,m,s);  % linear saturating controller
+% policy.p.w = rand(Du,length(poli));
+% policy.p.b = ones(Du,1).*targets';
+
 % GP Controller:
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
 nc = 10;
@@ -220,3 +267,9 @@ M = cell(N,1);  Sigma = cell(N,1);
 Mfull = cell(N,1); Sfull = cell(N,1);
 
 insertSuccess = zeros(1,N+J); reference = zeros(H+1,length(dyno));
+
+%%
+% fantasy.mean{N} = []; fantasy.std{N} = [];
+% realCost{N}=[];  latent{N}=[];  realAcumCost(N) = 0;
+% M{N} = [];  Sigma{N} = [];
+% insertSuccess(N) = 0;

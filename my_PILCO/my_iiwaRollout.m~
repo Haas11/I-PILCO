@@ -1,4 +1,4 @@
-function [x, y, L, latent] = my_iiwaRollout(policy, plant, H, Href, init)
+function [x, y, L, latent] = my_iiwaRollout(handles, policy, plant, H, Href, init)
 %
 % Inputs:
 %   - handles   handles for ROS communication
@@ -27,7 +27,35 @@ end
 poli = plant.poli;
 dyno = plant.dyno;
 
-handles = initRosiiwa(10, plant.dt, 0.25, 'slip');
+ipaddress = 'http://192.170.10.5:11311';
+rosshutdown;            % [bugfix] shutdown first for debug
+rosinit(ipaddress);     % start MATLAB ROS Node
+
+handles.frequency = 1/plant.dt;             % [Hz]
+% min sampling time seems to be at 0.06 seconds = 16 Hz
+% iiwa state publisher operates at around 50 Hz
+
+% subscribers:
+handles.subCartesianPose = rossubscriber('/iiwa/state/CartesianPose','BufferSize', 25);
+handles.subCartesianWrench = rossubscriber('/iiwa/state/CartesianWrench','BufferSize', 25);
+
+% publishers
+handles.pubCartesianPose  = rospublisher('/iiwa/command/CartesianPose', 'IsLatching', false);   % Cartesian Pose
+poseCommandMsg = rosmessage(handles.pubCartesianPose);  % initialize pose command message
+poseCommandMsg.Header.FrameId = 'peg_link_ee_kuka';     % tool frame
+
+handles.pubJointPosition = rospublisher('/iiwa/command/JointPosition', 'IsLatching', false);    % Joint Position
+jointCommandMsg = rosmessage(handles.pubJointPosition);     % joint position command message
+jointCommandMsg.Header.FrameId = 'Robot';                   % (don't change)
+
+% services
+handles.client = rossvcclient('/iiwa/configuration/configureSmartServo');
+handles.config = rosmessage(handles.client);
+handles.config.Mode.RelativeVelocity = 1;
+
+% ROS Rate Timer:
+handles.r = robotics.Rate(handles.frequency);
+handles.r.OverrunAction = 'slip';               % slip = don't skip step when violating sampling constraint, drop = skip one step
 
 % state vector:
 x = zeros(handles.N,18);    % state vector [x dx W]
@@ -51,7 +79,6 @@ handles.config.Mode.CartesianDamping.Damping.C = 0.7;
 
 handles.config.Mode.NullspaceStiffness = 50;
 handles.config.Mode.NullspaceDamping = 0.7;
-
 
 try
     
