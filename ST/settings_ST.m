@@ -202,7 +202,7 @@ plant.difi = difi;
 plant.refi = refi;
 plant.prop = @my_propagated;   % handle to function that propagates state over time
 plant.simconstraint = @constraint_check;
-plant.rollout_model = 'IPILCO_relativeEuler_ST';
+plant.rollout_model = 'IPILCO_relativeRPY_ST';
 plant.indices = indices;
 
 %% 4. Set up the policy structure
