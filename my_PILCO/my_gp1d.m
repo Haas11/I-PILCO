@@ -45,11 +45,22 @@ function [M, S, V, dMdm, dSdm, dVdm, dMds, dSds, dVds] = my_gp1d(gpmodel, m, s)
 %% Code
 
 % If no derivatives are required, call gp1
-if nargout < 4; [M, S, V] = gp1(gpmodel, m, s); return; end
-% If there are no inducing inputs, back off to gp0d (no sparse GP required)
-if numel(gpmodel.induce) == 0 || (isfield(gpmodel,'full') && gpmodel.full)
-  [M, S, V, dMdm, dSdm, dVdm, dMds, dSds, dVds] = gp0d(gpmodel, m, s); return;
+if nargout < 4; 
+    if isfield(gpmodel,'full')
+        if gpmodel.full
+            [M, S, V] = gp0(gpmodel, m, s); 
+            return;
+        end    
+    end
+    [M, S, V] = gp1(gpmodel, m, s);
+    return;
 end
+
+% If there are no inducing inputs, back off to gp0d (no sparse GP required)
+if numel(gpmodel.induce) == 0
+    [M, S, V, dMdm, dSdm, dVdm, dMds, dSds, dVds] = gp0d(gpmodel, m, s); return;
+end
+    
 
 % 1) If necessary: re-compute cached variables
 persistent iK iK2 beta oldX;
