@@ -99,7 +99,7 @@ opt.verbosity = 3;                      % optimization verbosity      [0-3]
 plotting.verbosity = 2;                 % plotting verbosity          [0-3]
 
 %% 1. Define state indices
-stateLength = 25;
+stateLength = 24;
 indices = 1:1:stateLength;
 n=3;
 odei = 1:1:2*n+6;
@@ -109,9 +109,9 @@ dyno    = [7 8 13 14 19];                          % dyno  indicies for the outp
 dyni    = [1 2 3 4 5];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
 difi    = [];                              % difi  indicies for training targets that are differences                      (subset of dyno)
 poli    = [1 2];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
-refi    = [1 2 3 4 5 6];                                 % indices for which to encode a reference as  prior mean
+refi    = [];                                 % indices for which to encode a reference as  prior mean
 REF_PRIOR  = 0;
-ref_select = [1 2 7 8 13];                    % indices of reference corresponding to dyno    [xe dxe F]
+ref_select = [];                    % indices of reference corresponding to dyno    [xe dxe F]
 
 dynoTitles = stateNames(indices(dyno));
 actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]', 'ref_x','ref_y'};%, 'Kp_{rot} [Nm/rad]'};
@@ -202,7 +202,7 @@ plant.difi = difi;
 plant.refi = refi;
 plant.prop = @my_propagated;   % handle to function that propagates state over time
 plant.simconstraint = @constraint_check;
-plant.rollout_model = 'IPILCO_relativeEuler_ST';
+plant.rollout_model = 'IPILCO_relativeRPY_ST';
 plant.indices = indices;
 
 %% 4. Set up the policy structure
