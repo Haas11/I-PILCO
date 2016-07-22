@@ -1,4 +1,4 @@
-function [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td] = genTrajectory(robot, peg, T0, T1, xhole, xc, T,  dt)
+function [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td] = genTrajectory(robot, mode, T0, T1, xhole, xc, T,  dt)
 global vert fac
 vert = ones(8,3); vert(1,1) = xc(1); vert(4:5,1) = xc(1); vert(8,1) = xc(1);
 vert(1:2,2:3) = -1; vert(3:4,3) = -1; vert(5:6,2) = -1;
@@ -20,7 +20,7 @@ dq0 = zeros(1,robot.n);    % initial config
 xhole2 = xhole + [0.05 0 0];
 Thole1 = transl(xhole); Thole2 = transl(xhole2);
 
-if ~peg
+if mode==0
     fprintf('Generating compliance test trajectory...\n');
     T0 = transl(0.4, 0, 0); q0 = robot.ikine(T0,q0_est,[1 1 0 0 0 1]);
     robot.plot(q0); patch('Vertices',vert,'Faces',fac,'FaceVertexCData',hsv(6),'FaceColor','flat');
@@ -45,7 +45,7 @@ if ~peg
     dxe_des  = [t_total, dxe_des(1:length(t_total),:)];
     ddxe_des = [t_total, ddxe_des(1:length(t_total),:)];
     
-elseif peg
+elseif mode==1
     fprintf('\nGenerating peg insertion trajectory...\n');
     t1 = T/3;
     t2 = 3*T/5;
@@ -70,6 +70,41 @@ elseif peg
     Tcart2 = ctraj(T1, Thole1, length(t_contact1));
     Tcart3 = ctraj(Thole1, Thole2, length(t_insert));
     Tcart4 = ctraj(Thole2, Thole2, length(t_rest));
+    
+    Ttot = cat(3,Tcart1,Tcart2,Tcart3,Tcart4);
+    
+    xe_des = [transl(Ttot), tr2rpy(Ttot)];          % extract des position
+    dxe_des = [zeros(1,6); diff(xe_des)/dt];        % differentiate for des velocity
+    ddxe_des = [zeros(1,6); diff(dxe_des)/dt];      % second difference for des acceleration
+    
+    xe_des   = [t_total, xe_des(1:length(t_total),:)];
+    dxe_des  = [t_total, dxe_des(1:length(t_total),:)];
+    ddxe_des = [t_total, ddxe_des(1:length(t_total),:)];
+elseif mode==2
+    fprintf('\nGenerating peg insertion trajectory...\n');
+    t1 = T/3;
+    t2 = 3*T/5;
+    t3 = 4*T/5;
+    t_total     = [0:dt:T]'; %#ok<*NBRAK>
+    t_approach  = [0:dt:t1]';
+    t_contact1  = [t1:dt:t2]';
+    t_insert    = [t2:dt:t3]';
+    t_rest      = [t3:dt:T]';
+    
+    if robot.isspherical
+        q0 = robot.ikine6s(T0);
+    elseif robot.n < 6
+        q0 = robot.ikine(T0,q0_est,[1 1 0 0 0 1],'pinv');  % numerical inverse kinematics
+    elseif robot.n > 3
+        [q0,~] = robot.ikcon(T0);
+    end
+    
+    %T1 = transl(xhole(1), 0, 0);                          % next config in task space
+    
+    Tcart1 = ctraj(T0, T1, length(t_approach));           % Cartesian trajectory generation
+    Tcart2 = ctraj(T1, T1, length(t_contact1));
+    Tcart3 = ctraj(T1, T1, length(t_insert));
+    Tcart4 = ctraj(T1, T1, length(t_rest));
     
     Ttot = cat(3,Tcart1,Tcart2,Tcart3,Tcart4);
     

@@ -103,13 +103,13 @@ n=3;
 odei = 1:1:2*n+6;
 augi    = [];                                           % augi  indicies for variables augmented to the ode variables
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
-dyno    = [7 8 13 14 19];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
-dyni    = [1 2 3 4];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
+dyno    = [7];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
+dyni    = [1];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
 difi    = [];                              % difi  indicies for training targets that are differences                      (subset of dyno)
-poli    = [1 2];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
-refi    = [1 2 3 4];                                 % indices for which to encode a reference as  prior mean
-REF_PRIOR  = 1;
-ref_select = [1 2 7 8 13];                    % indices of reference corresponding to dyno    [xe dxe F]
+poli    = [1];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
+refi    = [1];                                 % indices for which to encode a reference as  prior mean
+REF_PRIOR  = 0;
+ref_select = [1];                    % indices of reference corresponding to dyno    [xe dxe F]
 
 dynoTitles = stateNames(indices(dyno));
 actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]', 'Kp_{rot}  [Nm/rad]'};%, 'Kp_{rot} [Nm/rad]'};
@@ -129,9 +129,9 @@ xhole = [0.5, 0.3, 0];   % center hole location [x, y, phi/z]
 xc    = [0.45, 10, 10, 10, 10, 10]';  % [m] environment constraint location
 x0    = [0.4 0 0];
 T0    = transl(x0);      % start pose end-effector
-T11   = transl([0.5 0.02 0]);
+T11   = transl([0.5 0 0]);
 [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td]...
-    = genTrajectory(robot, peg, T0, T11, xhole, xc, T, dt);
+    = genTrajectory(robot, 2, T0, T11, xhole, xc, T, dt);
 t = 0:dt:T;
 Hd = timeseries(Td(:,:,1:length(t)),t);
 T_e_init = cardatol(tr2rpy(Hd.data(:,:,1)),1,2,3);      %xyz
@@ -198,14 +198,14 @@ plant.indices = indices;
 % GP Controller:
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
 nc = 10;
-policy.maxU  = [150 150]./2; policy.minU  = [10 10];
-policy.impIdx = [1 2]; policy.refIdx = [];
+policy.maxU  = [150]./2; policy.minU  = [10];
+policy.impIdx = [1]; policy.refIdx = [];
 Du = length(policy.maxU);
 
-multTargets(1,:) = [50 50];
-multTargets(2,:) = [80 80];
-multTargets(3,:) = [120 120];
-varTargets = [100 100];              % initial target variance
+multTargets(1,:) = [50];
+multTargets(2,:) = [80];
+multTargets(3,:) = [120];
+varTargets = [100];              % initial target variance
 
 targets = multTargets(2,:);                % targets for initializing hyperparameters
 seedMatrix = 1:1:J*Du;
@@ -236,16 +236,16 @@ cost.expl  = -0.25;                           % exploration parameter (UCB) smoo
 cost.ep    = 0.001;                           % energy penalty
 
 cost.sub{1}.fcn     = @lossSat_2dPIH;
-cost.sub{1}.losi    = [1 2];                            % indicies for saturating cost states
-cost.sub{1}.target  = ([xhole(1:2)] + [0.05 0])';           % target state
+cost.sub{1}.losi    = [1];                            % indicies for saturating cost states
+cost.sub{1}.target  = ([xhole(1)] + [0.05])';           % target state
 cost.sub{1}.width   = 0.05;
 cost.sub{1}.angle   = plant.angi;
 
-cost.sub{2}.fcn     = @lossSat_2dPIH;
-cost.sub{2}.losi 	= 5;                            % indicies for force
-cost.sub{2}.target  = 0;                            % target state
-cost.sub{2}.width   = 10;                           % Weight matrix
-cost.sub{2}.angle   = plant.angi;                   % index of angle (for cost function)
+% cost.sub{2}.fcn     = @lossSat_2dPIH;
+% cost.sub{2}.losi 	= 5;                            % indicies for force
+% cost.sub{2}.target  = 0;                            % target state
+% cost.sub{2}.width   = 10;                           % Weight matrix
+% cost.sub{2}.angle   = plant.angi;                   % index of angle (for cost function)
 
 %% 6. Set up the GP dynamics model structure
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions
