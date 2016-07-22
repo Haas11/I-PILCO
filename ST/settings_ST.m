@@ -99,17 +99,17 @@ opt.verbosity = 3;                      % optimization verbosity      [0-3]
 plotting.verbosity = 2;                 % plotting verbosity          [0-3]
 
 %% 1. Define state indices
-stateLength = 25;
+stateLength = 24;
 indices = 1:1:stateLength;
 n=3;
 odei = 1:1:2*n+6;
 augi    = [];                                           % augi  indicies for variables augmented to the ode variables
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
 dyno    = [7 8 13 14 19];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
-dyni    = [1 2 3 4 5];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
-difi    = [];                              % difi  indicies for training targets that are differences                      (subset of dyno)
+dyni    = [1 2 3 4];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
+difi    = [1 2 3 4];                              % difi  indicies for training targets that are differences                      (subset of dyno)
 poli    = [1 2];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
-refi    = [1 2 3 4 5 6];                                 % indices for which to encode a reference as  prior mean
+refi    = [];                                 % indices for which to encode a reference as  prior mean
 REF_PRIOR  = 0;
 ref_select = [1 2 7 8 13];                    % indices of reference corresponding to dyno    [xe dxe F]
 
@@ -185,7 +185,7 @@ end
 % ref_target_repeat = [];%repmat(ref_target, J-1, 1);
 
 %% 3. Set up the plant structure
-outputNoiseSTD = ones(1,length(odei))*0.001.^2;                          % noise added to odei indicies in simulation
+outputNoiseSTD = ones(1,length(odei))*0.005.^2;                          % noise added to odei indicies in simulation
 outputNoiseSTD(1,end-5:end) = 0.05^2;
 initRollOutNoise = 1e-4;
 
@@ -258,7 +258,7 @@ cost.sub{1}.angle   = plant.angi;
 % cost.sub{2}.width   = 10;                           % Weight matrix
 % cost.sub{2}.angle   = plant.angi;                   % index of angle (for cost function)
 %% 6. Set up the GP dynamics model structure
-dynmodel.fcn    = @gp1d;                    % function for GP predictions
+dynmodel.fcn    = @my_gp1d;                    % function for GP predictions
 dynmodel.train  = @my_train;                % function to train dynamics model
 nii             = 300;                      % no. of inducing inputs
 dynmodel.induce = zeros(nii,0,1);% shared/individual inducing inputs per target dim (sparse GP)
