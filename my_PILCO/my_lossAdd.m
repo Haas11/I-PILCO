@@ -3,7 +3,7 @@
 % can be using a different loss function and operating on a different part of
 % the state.
 %
-%       function [L, dLdm, dLds, S, dSdm, dSds, C, dCdm, dCds] = my_lossAdd(cost, m, s)
+%       function [L, dLdm, dLds, S, dSdm, dSds, C, dCdm, dCds] = my_lossAdd(cost, m, s, varargin)
 %
 % *Input arguments:*
 %
@@ -17,6 +17,13 @@
 %
 %    m         mean of input distribution                              [D x 1]
 %    s         covariance matrix of input distribution                 [D x D]
+%   
+%   (Optional Input Arguments):    
+%   ma
+%   policy
+%   dmadm
+%   dmads
+%   plant
 %
 % *Output arguments:*
 %

@@ -1,4 +1,4 @@
-function [x, y, L, latent] = my_iiwaRollout(policy, plant, H, Href, init)
+function [x, y, L, latent] = my_iiwaRollout(policy, plant, cost, H, Href, init)
 %
 % Inputs:
 %   - handles   handles for ROS communication
@@ -27,10 +27,28 @@ end
 poli = plant.poli;
 dyno = plant.dyno;
 
-handles = initRosiiwa(10, plant.dt, 0.25, 'slip');
+nX = 7+7+6;                 % number of states = xe + dxe + F
+nU = length(policy.maxU);   % number of actions
+
+x = zeros(H+1,nX + nU);
+a = zeros(H,nU);
+%y = zeros(H,nX);
+L = zeros(H,1);
+% latent = zeros(H+1, nX + nU);
+
+pose1Send = false;
+pose2Send = false;
+pose3Send = false;
+
+% Initialize the ROS infrastructure:
+bufferSize = 10;
+relativeVelocity = 0.1;
+handles = initROSiiwa(bufferSize, plant.dt, relativeVelocity, 'slip');
+poseCommandMsg = handles.poseCommandMsg;
+jointCommandMsg = handles.jointCommandMsg;
 
 % state vector:
-x = zeros(handles.N,18);    % state vector [x dx W]
+%x = zeros(handles.N,18);    % state vector [x dx W]
 
 % Configure Cartesian Impedance Mode:
 handles.config.Mode.Mode = robotics.ros.custom.msggen.iiwa_msgs.SmartServoMode.CARTESIANIMPEDANCE;
@@ -55,17 +73,17 @@ handles.config.Mode.NullspaceDamping = 0.7;
 
 try
     
-    fprintf('\n...\n======= MOVING TO START STATE ======== \n...\n');
+    fprintf('\n --- Moving to start state --- \n');
     pause(2);
     
     % Initialize the pose of the robot:
-    q0 = [-0.00122388906311;
-        0.259632468224;
-        0.00148364703637;
-        -1.42674195766;
-        -0.000345433305483;
-        1.455529809;
-        0.000291096803267];
+    q0 = [-0.0012;
+        0.2596;
+        0.0014;
+        -1.4267;
+        -0.0003;
+        1.4555;
+        0.0002];
     
     jointCommandMsg.Position.A1 = q0(1);
     jointCommandMsg.Position.A2 = q0(2);
@@ -92,15 +110,16 @@ try
     response = call(handles.client, handles.config, 'Timeout', 5);
     pause(2);
     if response.Success
-        fprintf('\n\n======= CARTESIAN IMPEDANCE MODE ACTIVE ======== \n\n');
+        fprintf('\n --- Cartesian Impedance Mode activated --- \n');
+        handles.config.Mode.Mode = -1;      % indicate that control mode is the same (time saving)
     else
-        error('Failed to start CARTESIAN IMPEDANCE MODE: %s', response.Error);
+        error('Failed to start Cartesian impedance mode.: %s', response.Error);
     end
     
     %% Perform Rollout
     validAnswer = false;
     while ~validAnswer
-        reply = input('Ready to start rollout? [Y/N] \n','s');
+        reply = input('\nReady to start rollout? [y/n]...','s');
         
         if strcmpi(reply,'y')
             validAnswer = true;
@@ -122,30 +141,71 @@ try
     t = rostime('now');
     startTime = double(t.Sec) + double(t.Nsec)/1e9;
     time = zeros(H,1);
+    
     for i=1:H
         
         % read state information
         [time(i), pose, wrench] = readState(handles, startTime);
-        x(i,1:6) = pose; x(i,13:18) = wrench;
+        x(i,1:length(pose)) = pose; x(i,15:20) = wrench;
         
         % compute stiffness values
         if initialRollout
-            a = init(i,:);
+            a(i,:) = init(i,:);
         else
-            a = policy.fcn(policy, x(i,dyno(poli))', zeros(length(poli)));
+            a(i,:) = policy.fcn(policy, x(i,dyno(poli))', zeros(length(poli)));
         end
         
         handles.config.Mode.CartesianStiffness.Stiffness.X = a(1);    % TODO: change for different action dimensionality!
         handles.config.Mode.CartesianStiffness.Stiffness.Y = a(1);
-        handles.config.Mode.CartesianStiffness.Stiffness.Z = a(2);
+        handles.config.Mode.CartesianStiffness.Stiffness.Z = a(1);
         handles.config.Mode.CartesianStiffness.Stiffness.A = 150;
         handles.config.Mode.CartesianStiffness.Stiffness.B = 150;
         handles.config.Mode.CartesianStiffness.Stiffness.C = 150;
-        handles.config.Mode.Mode = -1;      % indicate that control mode is the same (time saving)
         
         % send service request
-        response = call(handles.client, handles.config, 'Timeout', 0.1);
+        response = call(handles.client, handles.config, 'Timeout', 0.2);
         if response.Success
+            
+            %             % New reference per point of interest:
+            %             if i < round(H/3) && ~pose1Send
+            %                 pos = transl(Href(:,:,1));              % position
+            %                 quat = Quaternion(Href(:,:,1)).double;  % orientation
+            %                 poseCommandMsg.Pose.Position.X = pos(1);
+            %                 poseCommandMsg.Pose.Position.Y = pos(2);
+            %                 poseCommandMsg.Pose.Position.Z = pos(3);
+            %                 poseCommandMsg.Pose.Orientation.X = quat(1);
+            %                 poseCommandMsg.Pose.Orientation.Y = quat(2);
+            %                 poseCommandMsg.Pose.Orientation.Z = quat(3);
+            %                 poseCommandMsg.Pose.Orientation.W = quat(4);
+            %                 send(handles.pubCartesianPose,poseCommandMsg);
+            %                 pose1Send = true;
+            %             elseif i>round(H/3) && i<round(H*2/3) && ~pose2Send
+            %                 pos = transl(Href(:,:,2));              % position
+            %                 quat = Quaternion(Href(:,:,2)).double;  % orientation
+            %                 poseCommandMsg.Pose.Position.X = pos(1);
+            %                 poseCommandMsg.Pose.Position.Y = pos(2);
+            %                 poseCommandMsg.Pose.Position.Z = pos(3);
+            %                 poseCommandMsg.Pose.Orientation.X = quat(1);
+            %                 poseCommandMsg.Pose.Orientation.Y = quat(2);
+            %                 poseCommandMsg.Pose.Orientation.Z = quat(3);
+            %                 poseCommandMsg.Pose.Orientation.W = quat(4);
+            %                 send(handles.pubCartesianPose,poseCommandMsg);
+            %                 pose2Send = true;
+            %             elseif i>round(H*2/3) && ~pose3Send
+            %                 pos = transl(Href(:,:,3));              % position
+            %                 quat = Quaternion(Href(:,:,3)).double;  % orientation
+            %                 poseCommandMsg.Pose.Position.X = pos(1);
+            %                 poseCommandMsg.Pose.Position.Y = pos(2);
+            %                 poseCommandMsg.Pose.Position.Z = pos(3);
+            %                 poseCommandMsg.Pose.Orientation.X = quat(1);
+            %                 poseCommandMsg.Pose.Orientation.Y = quat(2);
+            %                 poseCommandMsg.Pose.Orientation.Z = quat(3);
+            %                 poseCommandMsg.Pose.Orientation.W = quat(4);
+            %                 send(handles.pubCartesianPose,poseCommandMsg);
+            %                 pose3Send = true;
+            %             end
+            
+            % New Reference time step:
             posCommand = transl(Href(:,:,i));              % position Vector
             quatCommand = Quaternion(Href(:,:,i)).double;  % orientation Quaternion
             
@@ -164,36 +224,57 @@ try
             warning('SmartServo not responding...');
         end
         
-        %if handles.r.LastPeriod > 1/handles.frequency
-        %    warning('Sampling time constraint was violated in iteration %1i by %4.5f [s].', i, handles.r.LastPeriod - 1/handles.frequency)
-        %end
         waitfor(handles.r);
     end
 catch ME
-    ME %#ok<NOPRT>
+    %     warning('Simulation aborted due to error: ',ME);
+    assignin('base', 'me', ME);
+    disp(ME);
     rosshutdown;
 end
 
+[time(H+1), pose, wrench] = readState(handles, startTime);
+x(H+1,1:length(pose)) = pose; x(H+1,length(pose)+1:length(pose)+6) = wrench;
+
+% move end-effector up 10 cm to relax:
+latestPose   = receive(handles.subCartesianPose);
+latestPose.Pose.Position.Z = latestPose.Pose.Position.Z + 0.1;
+send(handles.pubCartesianPose,latestPose);
+
+rosshutdown;
+
+fprintf('Timing data:\n')
+handles.r.statistics
+if handles.r.statistics.NumOverruns > 0
+    warning('The rollout encountered %i timing violations',handles.r.statistics.NumOverruns);
+end
 
 %% Data processing
 
-% Filter position data:
-lpFilt = designfilt('lowpassfir', ...
-    'FilterOrder', 25, ...
-    'PassbandFrequency', 50, ...
-    'StopbandFrequency', 60,...
-    'DesignMethod', 'ls', ...
-    'SampleRate', 250);
-fvtool(lpFilt) % visualize filter response
-filtPose = filter(lpFilt,x(:,1:6)); % apply filter to your data
+% % Filter position data:
+% lpFilt = designfilt('lowpassfir', ...
+%     'FilterOrder', 25, ...
+%     'PassbandFrequency', 50, ...
+%     'StopbandFrequency', 60,...
+%     'DesignMethod', 'ls', ...
+%     'SampleRate', 250);
+% fvtool(lpFilt) % visualize filter response
+% filtPose = filter(lpFilt,x(:,1:6)); % apply filter to your data
+%
+% [~, cartVelocity] = gradient(filtPose,plant.dt);
 
-[~, cartVelocity] = gradient(filtPose,plant.dt);
-x(:,7:12) = cartVelocity;
+% non-filtered velocity:
+cartVelocity = gradient(x(:,1:7),plant.dt);
+
+x(:,8:14) = cartVelocity;
 
 % dimensionality check on outputs:
 y = x(2:H+1,1:nX);          % successor states  [H x nX]
 x = [x(1:H,:) a(1:H,:)];    % observed  states  [H x nX+2*nU]
 
+for i=1:H
+    L(i,1) = cost.fcn(cost, x(i,dyno), zeros(length(dyno)), a(i,:), policy);    % compute rollout cost w/ energy penalty
+end
 L = L(1:H,1);               % Cost
 
 latent = x;                 % actual latent states unknown, so measured state is passed for congruency.

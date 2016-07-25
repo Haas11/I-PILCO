@@ -11,6 +11,11 @@ function handles = initROSiiwa(bufferSize, dt, relVelocity, overrunAction, varar
 %       relVelocity - relative velocity of joint position motions (0,1]
 %       overrunAction - What to do when overshooting sampling instance
 %       ('slip' or 'drop')
+% OPTIONAL INPUTS:
+%       Mode        - Choose specific mode to initialize into.
+%           0 = Joint Position
+%           1 = Joint Impedance
+%           2 = Cartesian Impedance
 %
 % Intializes:
 %       - ROS network connecting to iiwa LBR7
@@ -36,7 +41,26 @@ function handles = initROSiiwa(bufferSize, dt, relVelocity, overrunAction, varar
 % Code by Victor van Spaandonk
 % July 2016
 
-%% Code 
+%% Code
+persistent CONNECTED
+if isempty(CONNECTED)
+    CONNECTED = false;
+end
+
+if ~CONNECTED
+    validAnswer = false;
+    while ~validAnswer
+        reply = input('\nROSSmartServo Application Running on Cabinet and roscore active? [y/n]...','s');
+        
+        if strcmpi(reply,'y')
+            validAnswer = true;
+        elseif strcmpi(reply,'n')
+            warning('Run the application ROSSmartServo on the KUKA Cabinet and optionally launch a roscore with additional nodes such as RVIZ.)');
+        else
+            warning('please hit "y" or "n"');
+        end
+    end
+end
 
 fprintf('\n\n --- Initializing ROS w/ LBR iiwa --- \n\n');
 
@@ -52,12 +76,12 @@ handles.subCartesianWrench = rossubscriber('/iiwa/state/CartesianWrench','Buffer
 
 % publishers
 handles.pubCartesianPose  = rospublisher('/iiwa/command/CartesianPose', 'IsLatching', false);   % Cartesian Pose
-poseCommandMsg = rosmessage(handles.pubCartesianPose);  % initialize pose command message
-poseCommandMsg.Header.FrameId = 'peg_link_ee_kuka';     % tool frame
+handles.poseCommandMsg = rosmessage(handles.pubCartesianPose);  % initialize pose command message
+handles.poseCommandMsg.Header.FrameId = 'peg_link_ee_kuka';     % tool frame
 
 handles.pubJointPosition = rospublisher('/iiwa/command/JointPosition', 'IsLatching', false);    % Joint Position
-jointCommandMsg = rosmessage(handles.pubJointPosition);     % joint position command message
-jointCommandMsg.Header.FrameId = 'Robot';                   % (don't change)
+handles.jointCommandMsg = rosmessage(handles.pubJointPosition);     % joint position command message
+handles.jointCommandMsg.Header.FrameId = 'Robot';                   % (don't change)
 
 % services
 handles.client = rossvcclient('/iiwa/configuration/configureSmartServo');
@@ -68,7 +92,8 @@ handles.config.Mode.RelativeVelocity = relVelocity;
 handles.r = robotics.Rate(handles.frequency);
 handles.r.OverrunAction = overrunAction;               % slip = don't skip step when violating sampling constraint, drop = skip one step
 
-fprintf('\nKUKA iiwa succesfully initialized\n');
+fprintf('\n --- KUKA iiwa succesfully initialized --- \n');
+CONNECTED = true;
 
 if nargin > 5
     mode = varargin{1};
@@ -78,14 +103,14 @@ if nargin > 5
     elseif strcmpi(mode,'JointImpedance')
         handles.config.Mode.Mode = robotics.ros.custom.msggen.iiwa_msgs.SmartServoMode.JOINTIMPEDANCE;
         response = call(handles.client, handles.config, 'Timeout', 5);
-
+        
     elseif strcmpi(mode,'JointPosition')
         handles.config.Mode.Mode = robotics.ros.custom.msggen.iiwa_msgs.SmartServoMode.JOINTPOSITION;
         response = call(handles.client, handles.config, 'Timeout', 5);
     end
     
     if response.Success
-        fprintf('\nSuccessfully switched control mode.\n');
+        fprintf('\n --- Successfully switched control mode --- \n');
     else
         error('Failed to start desired mode: %s', response.Error);
     end

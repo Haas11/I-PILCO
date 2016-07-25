@@ -1,4 +1,4 @@
-function [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td] = genTrajectory(robot, mode, T0, T1, xhole, xc, T,  dt)
+function [mu0, S0, xe_des, dxe_des, ddxe_des, T, pointwiseHd, Rd, Td] = genTrajectory(robot, mode, T0, T1, xhole, xc, T,  dt)
 global vert fac
 vert = ones(8,3); vert(1,1) = xc(1); vert(4:5,1) = xc(1); vert(8,1) = xc(1);
 vert(1:2,2:3) = -1; vert(3:4,3) = -1; vert(5:6,2) = -1;
@@ -14,8 +14,16 @@ t_contact1  = (t1:dt:t2)';
 t_contact2  = (t2:dt:t3)';
 t_final     = (t3:dt:T)';
 
-q0_est  = ones(1,robot.n)*-0.5;
-dq0 = zeros(1,robot.n);    % initial config
+if mode~=2
+    q0_est  = ones(1,robot.n)*-0.5;
+    dq0 = zeros(1,robot.n);    % initial config
+else
+    dq0 = zeros(1,7);
+end
+
+F0 = zeros(1,6);
+xe0 = [transl(T0)', tr2rpy(T0)];
+dxe0 = zeros(1,6);
 
 xhole2 = xhole + [0.05 0 0];
 Thole1 = transl(xhole); Thole2 = transl(xhole2);
@@ -44,6 +52,10 @@ if mode==0
     xe_des   = [t_total, xe_des(1:length(t_total),:)];
     dxe_des  = [t_total, dxe_des(1:length(t_total),:)];
     ddxe_des = [t_total, ddxe_des(1:length(t_total),:)];
+    
+    mu0 = [q0, dq0, xe0, dxe0, F0, 0]; %[q dq xe dxe Fext t]
+    
+    S0  = diag([0*ones(1,robot.n) 0*ones(1,robot.n) 0*ones(1,length(F0))].^2); % initial state covariance
     
 elseif mode==1
     fprintf('\nGenerating peg insertion trajectory...\n');
@@ -80,49 +92,62 @@ elseif mode==1
     xe_des   = [t_total, xe_des(1:length(t_total),:)];
     dxe_des  = [t_total, dxe_des(1:length(t_total),:)];
     ddxe_des = [t_total, ddxe_des(1:length(t_total),:)];
+    
+    mu0 = [q0, dq0, xe0, dxe0, F0, 0]; %[q dq xe dxe Fext t]
+    
+    S0  = diag([0*ones(1,robot.n) 0*ones(1,robot.n) 0*ones(1,length(F0))].^2); % initial state covariance
+    
+    
 elseif mode==2
-    t_01 = T/5/dt;
-    t_12 = T/5/dt;
-    t_23 = T*2/5/dt;
-    t_33 = T/5/dt;
+    
+    q0 = [-0.00122388906311;
+        0.259632468224;
+        0.00148364703637;
+        -1.42674195766;
+        -0.000345433305483;
+        1.455529809;
+        0.000291096803267];
+    
+    xe0 = [transl(T0)', tform2quat(T0)];
+    dxe0 = zeros(1,7);
+    
+    t_01 = T*2/5/dt;
+    t_12 = T*2/5/dt;
+    t_23 = T*1/5/dt;
+%     t_33 = T/10/dt;
     
     initRot = t2r(quat2tform([0 1 0 0]));
-    firstRot = t2r(quat2tform([0.1 0.9 0.1 0.1]));
+    %     firstRot = t2r(quat2tform([0.1 0.9 0.1 0.1]));
     
-    T0 = rt2tr(initRot,[0.5 0 0.4]');
-    T1 = rt2tr(firstRot,[0.5 0 0.2]');
-    T2 = rt2tr(initRot,[0.6 0 0.1]');
-    T3 = rt2tr(initRot,[0.6 0.1 0.1]');
+    T1 = rt2tr(initRot,[0.5 0 0.05]');
+    T2 = rt2tr(initRot,[0.7 0 0.05]');
+%     T3 = rt2tr(initRot,[0.6 0 0.05]');
     
     Tcart1 = ctraj(T0, T1, t_01);           % Cartesian trajectory generation
     Tcart2 = ctraj(T1, T2, t_12);
-    Tcart3 = ctraj(T2, T3, t_23);
-    Tcart4 = ctraj(T3, T3, t_33);
+    Tcart3 = ctraj(T2, T2, t_23);
+%     Tcart4 = ctraj(T3, T3, t_33);
     
-    Ttot = cat(3,Tcart1,Tcart2,Tcart3,Tcart4,Tcart4);
-           
-    Href1 = cat(3,T0,T1,T2,T3);
+    Ttot = cat(3,Tcart1,Tcart2,Tcart3,Tcart3);%,Tcart4);
+%     Href1 = cat(3,T0,T1,T2);
+    
+    mu0 = [xe0, dxe0, F0]; %[q dq xe dxe Fext t]
+    S0  = diag([0.001*ones(1,7) 0*ones(1,7) 0.1*ones(1,length(F0))].^2); % initial state covariance
+    
+    
+    xe_des = [transl(Ttot), tr2rpy(Ttot)];          % extract des position
+    dxe_des = [zeros(1,6); diff(xe_des)/dt];        % differentiate for des velocity
+    ddxe_des = [zeros(1,6); diff(dxe_des)/dt];      % second difference for des acceleration
+    
+    xe_des   = [t_total, xe_des(1:length(t_total),:)];
+    dxe_des  = [t_total, dxe_des(1:length(t_total),:)];
+    ddxe_des = [t_total, ddxe_des(1:length(t_total),:)];
 end
 
-Hf = Ttot(:,:,end);
-F0 = zeros(1,6);
-xe0 = [transl(T0)', tr2rpy(T0)];
-dxe0 = zeros(1,6);
-
-mu0 = [q0, dq0, xe0, dxe0, F0, 0]; %[q dq xe dxe Fext t]
-
-S0  = diag([0*ones(1,robot.n) 0*ones(1,robot.n) 0*ones(1,length(F0))].^2); % initial state covariance
+pointwiseHd = cat(3,T1,T2);
 
 Td = Ttot;
-Rd = tr2rt(Ttot);
-
-
-% Desired angular acceleration
-% dT_d = delta2tr(xe_des);
-% dEUL_d =
-
-% domega_d = T_d*ddEUL_d + dT_d*dEUL_d;   % desired angular acceleration
-
+Rd = tr2rt(Td);
 
 end
 

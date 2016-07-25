@@ -29,23 +29,25 @@
 %  1  X              x-position end-effector in world frame
 %  2  Y              y-position end-effector in world frame
 %  3  Z              z-position end-effector in world frame
-%  4  Alpha
-%  5  Gamma
-%  6  Phi            angle around z
+%  4  w              quaternion rotation
+%  5  x              quaternion vector x coordinate
+%  6  y              quaternion vector y coordinate
+%  7  z              quaternion vector z coordinate
 
-% 7  dX             x-velocity end-effector in world frame
-% 8  dY             y-velocity end-effector in world frame
-% 9  dZ             z-velocity end-effector in world frame
-% 10  dAlpha         Alpha-angular velocity  in world frame
-% 11  dGamma         Gamma-angular velocity  in world frame
-% 12  dPhi           Phi-angular velocity    in world frame
-
-% 13  Fx             Cartesian x-force in world frame
-% 14  Fy             Cartesian y-force in world frame
-% 15  Fz             Cartesian z-force in world frame
-% 16  Fa             Cartesian alpha torque in world frame
-% 17  Fg             Cartesian gamma torque in world frame
-% 18  Fp             Cartesian phi   torque in world frame
+% 8  dX              x-velocity end-effector in world frame
+% 9  dY              y-velocity end-effector in world frame
+% 10  dZ             z-velocity end-effector in world frame
+% 11  dw        
+% 12  dx         
+% 13  dy
+% 14  dz            
+ 
+% 15  Fx             Cartesian x-force in world frame
+% 16  Fy             Cartesian y-force in world frame
+% 17  Fz             Cartesian z-force in world frame
+% 18  Fa             Cartesian alpha torque in world frame
+% 19  Fg             Cartesian gamma torque in world frame
+% 20  Fp             Cartesian phi   torque in world frame
 
 % 19  Kp_x           Cartesian stiffness in x
 % 20  Kp_y           Cartesian stiffness in y
@@ -65,50 +67,64 @@
 warning('on','all');
 rng(0,'twister');
 format short; format compact;
-stateNames = {'xe_x','xe_y','xe_z','alpha','gamma','phi','dxe_x','dxe_y','dxe_z',...
-    'dalpha','dgamma','dphi','Fx','Fy','Fz','Tx','Ty','Tz'};
+stateNames = {'xe_x','xe_y','xe_z','x','y','z','w','dxe_y','dxe_z',...
+    'dx','dy','dz','dw','Fx','Fy','Fz','Tx','Ty','Tz'};
 global REF_PRIOR 
 
 opt.verbosity = 3;                      % optimization verbosity      [0-3]
 plotting.verbosity = 2;                 % plotting verbosity          [0-3]
-%% 1. Define state indices
-KUKA = true;
 
-stateLength = 24;
+%% 1. Define state indices
+KUKA = true;        % boolean to indicate real world experiments
+
+stateLength = 18;
 indices = 1:1:stateLength;
 n=7;
 odei = 1:1:2*n+6;
 augi    = [];                                           % augi  indicies for variables augmented to the ode variables
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
-dyno    = [3];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
-dyni    = [1];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
-difi    = [1];                              % difi  indicies for training targets that are differences                      (subset of dyno)
-poli    = [1];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
-refi    = [1];                                 % indices for which to encode a reference as  prior mean
-REF_PRIOR  = 1;
-ref_select = [3];                    % indices of reference corresponding to dyno    [xe dxe F]
+dyno    = [1 3 17];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
+dyni    = [1 2 3];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
+difi    = [1 2 3];                              % difi  indicies for training targets that are differences                      (subset of dyno)
+poli    = [1 2];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
+refi    = [1 3];                                 % indices for which to encode a reference as  prior mean
+REF_PRIOR  = 0;
+ref_select = [1 3 15];                    % indices of reference corresponding to dyno    [xe dxe F]
 
 dynoTitles = stateNames(indices(dyno));
-actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]', 'Kp_{rot}  [Nm/rad]'};%, 'Kp_{rot} [Nm/rad]'};
+actionTitles = {'Kp_{z}  [N/m]'};
 
 %% 2. Set up the scenario
-dynPert = 0.10;          % [%] Perturbation of dynamics during simulation 
-dt_sim = 0.01;
-dt = dt_sim;             % [s] controller sampling time
-dt_pilco = 0.1;          % [s] PILCO sampling rate 
-fprintf('\nInitializing robot model');
-run init_3Lbot.m
+dt_pilco = 0.10;             % [s] PILCO sampling rate 
+dt = dt_pilco;              % [s] controller sampling time during rollouts
 
-T = 10.0;                % [s] Rollout time
+T = 10.0;                   % [s] Duration of a single trial
 t_pilco = (0:dt_pilco:T)';
 
-genKUKATrajectory;
+% REMAINS FROM SIMULATION (DEFINED TO AVOID ERRORS)
+peg = 1;                    
+xc    = [0.45, 10, 10, 10, 10, 10]';  % [m] environment constraint location 
+xhole = [0.6, 0, 0.05];      % center hole location [x, y, phi/z]
+T11   = transl([0.5 0.02 0]);   
+robot = false;
 
-mu0Sim = 
+mode = 2;                   % [bool]  0= free motion sim, 1=peg sim, 2=KUKA experiment.
+x0    = [0.5 0 0.4];
+initRot = t2r(quat2tform([0 1 0 0]));
+T0    = rt2tr(initRot, x0');
+[mu0, S0, xe_des, dxe_des, ddxe_des, T, pointwiseHd, Rd, Hd]...
+    = genTrajectory(robot, mode, T0, T11, xhole, xc, T, dt);
+t = 0:dt:T;
+
+Hdes = Hd;
+
+initPredVar = 1e-4;
+mu0Sim = mu0(indices(dyno));
+S0Sim = S0(dyno,dyno);
 
 H = ceil(T/dt_pilco);              % no. of timesteps per rollout
 N = 30;                            % no. of controller optimizations
-Ntest = 1;                         % no. of roll outs to test controller quality
+Ntest = 0;                         % no. of roll outs to test controller quality
 J = 1;                             % no. of initial training rollouts
 K = 1;                             % no. of initial states for which we optimize
 colorVec = {'r','b','g','k','m','c','y','r-.','b-.','g-.','k-.','m-.','c-.','y-.',...
@@ -123,7 +139,7 @@ end
 %% 3. Set up the plant structure
 outputNoiseSTD = ones(1,length(odei))*0.005.^2;                          % noise added to odei indicies in simulation
 outputNoiseSTD(1,end-5:end) = 0.05^2;
-initRollOutNoise = 1e-4;
+initRollOutNoise = 1e-3;
 
 plant.noise = diag(outputNoiseSTD);
 plant.dt = dt_pilco;
@@ -143,12 +159,11 @@ plant.indices = indices;
 % GP Controller:
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
 nc = 10;
-policy.maxU  = [150 150]./2; policy.minU  = [10 10];
-policy.impIdx = [1 2]; policy.refIdx = [];
+policy.maxU  = [2500]./2; policy.minU  = [10];
+policy.impIdx = [1]; policy.refIdx = [];
 Du = length(policy.maxU);
 
-initMean = [1000 1000];
-initVar = [100 100];              % initial target variance
+initMean = [1000];     initVar = [500];             
 
 targets = initMean;                % targets for initializing hyperparameters
 seedMatrix = 1:1:J*Du;
@@ -156,12 +171,8 @@ seedMatrix = reshape(seedMatrix,J,[]);
 
 a_init = gaussian(initMean,diag(initVar),H)';
 
-scale_factor = (policy.maxU.*(3/2)); scaled_targets = targets./scale_factor;
-scaled_var = initVar./scale_factor;
-
 policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
-policy.p.targets = ...
-    repmat(scaled_targets, nc, 1) + repmat(scaled_var,nc,1).*randn(nc, length(policy.maxU));   % policy pseudo targets  [ N  x  D ]
+policy.p.targets = 0.1*randn(nc, length(policy.maxU));                                         % init. policy targets 
 policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]
     repmat(log([ones(1,length(poli))*1, 1, 0.01]'), 1, length(policy.maxU));
 
@@ -182,15 +193,9 @@ cost.ep    = 0.001;                           % energy penalty
 
 cost.sub{1}.fcn     = @lossSat_2dPIH;
 cost.sub{1}.losi    = [1 2];                            % indicies for saturating cost states
-cost.sub{1}.target  = ([xhole(1:2)] + [0.05 0])';           % target state
-cost.sub{1}.width   = 0.05;
+cost.sub{1}.target  = [0.6 0.05];           % target state
+cost.sub{1}.width   = 0.1;
 cost.sub{1}.angle   = plant.angi;
-
-cost.sub{2}.fcn     = @lossSat_2dPIH;
-cost.sub{2}.losi 	= 5;                            % indicies for force
-cost.sub{2}.target  = 0;                            % target state
-cost.sub{2}.width   = 10;                           % Weight matrix
-cost.sub{2}.angle   = plant.angi;                   % index of angle (for cost function)
 
 %% 6. Set up the GP dynamics model structure
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions
@@ -207,7 +212,7 @@ trainOpt        = [200 300];                % max. number of line searches [full
 %% 7. Parameters for policy optimization
 opt.fh = 1;
 opt.method = 'BFGS';                    % 'BFGS' (default), 'LBFGS' (x>1000), 'CG'
-opt.length = 75;                        % (+): max. number of line searches
+opt.length = 50;                        % (+): max. number of line searches
 opt.MFEPLS = 25;                        % max. number of function evaluations per linesearch
 % opt.MSR = 100;                        % max. slope ratio (default=100)
 

@@ -25,45 +25,40 @@ end
 settings_S_iiwa;                  % load scenario-specific settings
 ep=num2str(cost.ep);
 expl=num2str(cost.expl);
-basename = strcat('_',date,'_','conLin-','_ep-0p',ep(strfind(ep,'.')+1:end),...
+basename = strcat('KUKA_',date,'_','conLin-','_ep-0p',ep(strfind(ep,'.')+1:end),...
     '_expl-0p',expl(strfind(expl,'.')+1:end),'-');      % filename used for saving data
-
-% numerically test my_gSat for proper means, variances and gradients
-if diffChecks && satCheck,    gSinSatT(@my_gSat); end
 
 printTuningParams
 
 %% 2. Initial rollouts
 fprintf('\nPerforming initial rollouts...\n');
-initRollout = 1;    %#ok<*NASGU>     Random walk (OU process)
-constMean = 1;      % Gaussian inputs w/ constant mean
 for jj = 1:J
     
-    [xx, yy, realCost{jj}, latent{jj}, rr] = ...
-        my_iiwaRollout(policy, plant, H, Href, a_init);   
+    [xx, yy, realCost{jj}, latent{jj}] = ...
+        my_iiwaRollout(policy, plant, cost, H, Hdes, a_init);   
     
     realAcumCost(jj) = sum(realCost{jj});   
     x = [x; xx]; y = [y; yy]; 
-    robs = [mu0(1,dyno); rr(:,ref_select)];  rrr = rr(:,ref_select);
-    rrr(:,difi) = rr(:,ref_select(difi)) - robs(1:length(rr),difi);
-    r = [r; rrr];      %#ok<*AGROW> % augment training sets for dynamics model
+%     robs = [mu0(1,dyno); rr(:,ref_select)];  rrr = rr(:,ref_select);
+%     rrr(:,difi) = rr(:,ref_select(difi)) - robs(1:length(rr),difi);
+%     r = [r; rrr];      %#ok<*AGROW> % augment training sets for dynamics model
     
     % determine if rollout successful:
-    if peg
         if size(xx,1) == H
             insertSuccess(jj) = 1;  %#ok<*SAGROW> not aborted
             if mean(abs(latent{1}(end-5:end,dyno(1))-(xhole(1)+0.05))) < 0.01;
                 insertSuccess(jj) = 2;                % succesful insertion
             end
         end
-    end
    
-    if insertSuccess(jj) ~= 0;
-        REF_DIFF = rrr;
-        dynmodel.ref = rrr;
-    else
-        warning('Initial rollout aborted. Complete reference unavailable.');
-    end
+%     if insertSuccess(jj) ~= 0;
+%         REF_DIFF = rrr;
+%         dynmodel.ref = rrr;
+%     elseif REF_PRIOR
+%         error('Initial rollout aborted. Complete reference unavailable.');
+%     else
+%         warning('Initial rollout aborted. Complete reference unavailable.');
+%     end        
     
     if plotting.verbosity > 0
         if ~ishandle(6)         % action iterations
@@ -133,9 +128,7 @@ end
 %% 3. Controlled learning (N iterations)
 fprintf('\nPILCO Learning started\n--------------------------------\n');
 jj=J;
-initRollout = 0;
-constMean = 0;
-for j = 4:N
+for j = 1:N
     my_trainDynModel;       % train (GP) dynamics model
     my_learnPolicy;         % update policy
     my_applyController;     % apply controller to system

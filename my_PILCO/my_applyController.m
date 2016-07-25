@@ -21,16 +21,17 @@ else
 end
 
 if KUKA
-    [xx, yy, realCost{jj}, latent{jj}, rr] = ...
-        my_iiwaRollout(mu0, policy, HH, plant, robot);  % Experiment
+    [xx, yy, realCost{j+J}, latent{j+J}] = ...
+        my_iiwaRollout(policy, plant, cost, HH, Hdes);  % Experiment
 else
     [xx, yy, realCost{j+J}, latent{j+J}, rr] = ...
         my_rollout(mu0, policy, HH, plant, robot);      % Simulation
+    robs = [mu0(1,dyno); rr(:,ref_select)];  rrr = rr(:,ref_select);
+    rrr(:,difi) = rr(:,ref_select(difi)) - robs(1:size(rr,1),difi);
+    r = [r; rrr];      %#ok<*AGROW> % augment training sets for dynamics model
 end
 x = [x; xx]; y = [y; yy];
-robs = [mu0(1,dyno); rr(:,ref_select)];  rrr = rr(:,ref_select);
-rrr(:,difi) = rr(:,ref_select(difi)) - robs(1:size(rr,1),difi);
-r = [r; rrr];      %#ok<*AGROW> % augment training sets for dynamics model
+
 realAcumCost(j+J) = sum(realCost{j+J});                 % Accumulated cost
 realAcumCost2{j+J}(1) = sum(realCost{j+J});                 % Accumulated cost
 
@@ -48,7 +49,12 @@ end
 testLat = cell(1,Ntest);
 testCost = cell(1,Ntest);
 for i=1:Ntest
-    [~,~,testCost{i},testLat{i}] = my_rollout(mu0, policy, HH, plant, robot);
+    if KUKA
+        [~,~,testCost{i},testLat{i}] = ...
+            my_iiwaRollout(policy, plant, cost, HH, Hdes);  % Experiment
+    else
+        [~,~,testCost{i},testLat{i}] = my_rollout(mu0, policy, HH, plant, robot);
+    end
 end
 
 %% verbosity
@@ -120,26 +126,44 @@ if plotting.verbosity > 0
         ldyno = length(dyno);
         for i=1:ldyno       % plot the rollouts on top of predicted error bars
             subplot(ceil(ldyno/sqrt(ldyno)),ceil(sqrt(ldyno)),i); hold on;
-            if compareToFullModel && numel(dynmodel.induce) ~= 0
+                        
+            % Full model:
+            if compareToFullModel && ~isempty(Mfull{j})
                 errorbar(0:length(Mfull{j}(i,:))-1, Mfull{j}(i,:), ...
                     2*sqrt(squeeze(Sfull{j}(i,i,:))), 'y');
             end
+            
+            % Full or Sparse model:
             errorbar( 0:length(M{j}(i,:))-1, M{j}(i,:), ...
                 2*sqrt(squeeze(Sigma{j}(i,i,:))) );
             
+            % Test trial:
             for ii=1:Ntest
                 stairs( 0:size(testLat{ii}(:,dyno(i)),1)-1, testLat{ii}(:,indices(dyno(i))), 'g' );        % recorded latent states in multiple robustness test-rollouts
             end
+            
+            % Model Trial:
             stairs( 0:size(latent{j+J}(:,dyno(i)),1)-1, latent{j+J}(:,indices(dyno(i))),'r');      % recorded latent states in apply_controller roll-out
+            
+            % Inducing Inputs:
             if i <= length(dyni) && numel(dynmodel.induce) ~= 0
                 plot(zeros(nii,1),dynmodel.induce(:,i),'kx');
             end
+            
             title(dynoTitles{i});
             if i==1
                 if compareToFullModel && numel(dynmodel.induce) ~= 0
-                    legend('Full Model','Sparse Model','Test','Trial','Sparse Inputs','Location','Best');
+                    if Ntest > 0
+                        legend('Full Model','Sparse Model','Test','Trial','Inducing Inputs','Location','Best');
+                    else
+                        legend('Full Model','Sparse Model','Trial','Inducing Inputs','Location','Best');
+                    end
                 else
-                    legend('Sparse Model','Test','Trial','Sparse Inputs','Location','Best');
+                    if Ntest > 0
+                        legend('Full Model','Test','Trial','Location','Best');
+                    else
+                        legend('Full Model','Trial','Location','Best');
+                    end
                 end
             end
             axis tight
