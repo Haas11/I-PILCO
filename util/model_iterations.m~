@@ -24,22 +24,20 @@ for kk=1:length(M)
         % Real trial:
         stairs(0:size(latent{kk+J}(:,dyno(i)),1)-1, latent{kk+J}(:,indices(dyno(i))),'r');      % recorded latent states in apply_controller roll-out
         
-        % All input locations:
-        if i <= length(dyni)
-            plot(ones(size(dynmodel.inputs,1),1)*H,dynmodel.inputs(:,i),'cx');
-        end
-        
         % Inducing inputs Locations:
         if i <= length(dyni) && ~isempty(Mfull{kk})
             plot(zeros(nii,1),dynmodel.induce(:,i),'kx');
         end
         
+        % All input locations:
+        
+        
         title(dynoTitles{i});
         if i==1
             if isempty(Mfull{kk})
-                legend('Full Model','Trial','Training Inputs','Sparse Inputs','Location','Best');
+                legend('Full Model','Test','Trial','Sparse Inputs','Location','Best');
             else
-                legend('Sparse Model','Full Model','Trial','Training Inputs','Sparse Inputs','Location','Best');
+                legend('Sparse Model','Full Model','Test','Trial','Sparse Inputs','Location','Best');
             end
         end
         axis tight
@@ -47,23 +45,6 @@ for kk=1:length(M)
     drawnow;
     pause;
 end
-
-%%
-figure;
-for kk=1:length(M)
-    plot(dynmodel.inputs(1:kk*H,1),dynmodel.targets(1:kk*H,1),'b--+');
-    hold on
-    errorbar(M{kk}(1,1:end-1)',M{kk}(1,2:end)',2*sqrt(squeeze(Sigma{kk}(1,1,2:end))),'rx');
-    hold on
-%     plot(zeros(nii,1),dynmodel.induce(:,i),'kx');
-    title(strcat('Iteration: ',num2str(kk)));
-    xlabel('Inputs')
-    ylabel('Outputs');
-    legend('Observed Data','GP Model','Location','Best');
-    drawnow;
-    pause;
-end
-
 
 %% Full Model:
 figure;

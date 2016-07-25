@@ -17,6 +17,7 @@
 % expll = [-0.1 -0.2 -0.4 -0.6 -0.8];
 
 %% 1. Initialization
+global vert fac
 clear; clc;
 figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
@@ -41,7 +42,7 @@ for jj = 1:J
     [xx, yy, realCost{jj}, latent{jj}, rr] = ...
         my_rollout(mu0, policy, H, plant, robot);   
     realAcumCost(jj) = sum(realCost{jj});   
-    x = [x; xx]; y = [y; yy]; 
+    x = [x; xx]; y = [y; yy]; a{jj} = xx(:,end-Du+1:end);
     robs = [mu0(1,dyno); rr(:,ref_select)];  rrr = rr(:,ref_select);
     rrr(:,difi) = rr(:,ref_select(difi)) - robs(1:length(rr),difi);
     r = [r; rrr];      %#ok<*AGROW> % augment training sets for dynamics model
@@ -55,15 +56,7 @@ for jj = 1:J
             end
         end
     end
-    
-    % concatenate reference trajectory:
-    %         ref_target_repeat = [ref_target_repeat; ref_target]; %#ok<*AGROW> % if not already done (debug for pauzing)
-    %         if size(xx,1) < H                  % if rollout was terminated prematurely
-    %             difLength = H - size(xx,1);
-    %             ref_target_repeat = ref_target_repeat(1:end-difLength,:);
-    %             insertSuccess(jj) = 0;          % override inset success
-    %         end
-    
+   
     if insertSuccess(jj) ~= 0;
         REF_DIFF = rrr;
         dynmodel.ref = rrr;
@@ -72,21 +65,23 @@ for jj = 1:J
     end
     
     if plotting.verbosity > 0
-        if ~ishandle(6)         % action iterations
-            figure(6);
-        else
-            set(0,'CurrentFigure',6);
-        end
-        hold on;
-        a = xx(:,end-Du+1:end);
-        for i=1:Du
-            subplot(ceil(Du/sqrt(Du)),ceil(sqrt(Du)),i);
-            hold on;
-            stairs(1:length(a(:,i)),a(:,i),strcat(colorVec{jj},'--'));
-            legend(iterVec{1:jj});
-            xlabel('Timestep');     ylabel(actionTitles{i});
-        end
-        drawnow;
+%         if ~ishandle(6)         % action iterations
+%             figure(6);
+%         else
+%             set(0,'CurrentFigure',6);
+%         end
+%         hold on;
+%         a{jj} = xx(:,end-Du+1:end);
+%         for k=1:jj
+%             for i=1:Du
+%                 subplot(ceil(Du/sqrt(Du)),ceil(sqrt(Du)),i);
+%                 hold on;
+%                 stairs(1:length(a(:,i)),a(:,i),strcat(colorVec{jj},'--'));
+%                 legend(iterVec{1:jj});
+%                 xlabel('Timestep');     ylabel(actionTitles{i});
+%             end
+%         end
+%         drawnow;
         
         if ~ishandle(10)         % cost iterations
             figure(10);
@@ -139,8 +134,6 @@ end
 %% 3. Controlled learning (N iterations)
 fprintf('\nPILCO Learning started\n--------------------------------\n');
 jj=J;
-initRollout = 0;
-constMean = 0;
 for j = 1:N
     my_trainDynModel;       % train (GP) dynamics model
     my_learnPolicy;         % update policy
@@ -148,12 +141,4 @@ for j = 1:N
     
     disp(['\nControlled trial # ' num2str(j)]);
     disp('Insertion successes: '); disp(insertSuccess);
-end
-%%
-figure;
-for i=1:N+J
-    plot(latent{i}(:,end-2:end));
-    title(num2str(i));
-    legend('x','y','r');
-    pause;
 end

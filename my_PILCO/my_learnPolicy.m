@@ -31,8 +31,8 @@ end
 gpCheck = 0;
 
 % 1. Update the policy
-[policy.p, fX3] = minimize(policy.p, 'my_value', opt, mu0Sim', S0Sim, ...
-    dynmodel, policy, plant, cost, H);
+%[policy.p, fX3] = minimize(policy.p, 'my_value', opt, mu0Sim', S0Sim, ...
+%    dynmodel, policy, plant, cost, H);
 
 % 2. Predict state trajectory from p(x0) and compute cost trajectory
 [M{j}, Sigma{j}] = my_pred(policy, plant, dynmodel, mu0Sim', S0Sim, H);
@@ -102,7 +102,7 @@ if diffChecks       % perform derivate checks [DEBUG]
 end
 
 %% Verbosity
-if plotting.verbosity > 0
+if plotting.verbosity > 1
     if ~ishandle(3)                     % predicted immediate costs & variances
         figure(3)
     else
@@ -114,7 +114,7 @@ if plotting.verbosity > 0
     drawnow;
     
     % Plot overall optimization progress
-    if plotting.verbosity > 1
+    if plotting.verbosity > 3
         if ~ishandle(2)
             figure(2)
         else

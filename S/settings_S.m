@@ -105,10 +105,10 @@ augi    = [];                                           % augi  indicies for var
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
 dyno    = [7];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
 dyni    = [1];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
-difi    = [];                              % difi  indicies for training targets that are differences                      (subset of dyno)
+difi    = [1];                              % difi  indicies for training targets that are differences                      (subset of dyno)
 poli    = [1];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
 refi    = [1];                                 % indices for which to encode a reference as  prior mean
-REF_PRIOR  = 0;
+REF_PRIOR  = 1;
 ref_select = [1];                    % indices of reference corresponding to dyno    [xe dxe F]
 
 dynoTitles = stateNames(indices(dyno));
@@ -125,6 +125,7 @@ run init_3Lbot.m
 T = 10.0;                % [s] Rollout time
 t_pilco = (0:dt_pilco:T)';
 peg = 1;                 % [bool]  peg insertion trajectory
+mode = 2;
 xhole = [0.5, 0.3, 0];   % center hole location [x, y, phi/z]
 xc    = [0.45, 10, 10, 10, 10, 10]';  % [m] environment constraint location
 x0    = [0.4 0 0];
@@ -155,7 +156,7 @@ disp(xhole)
 % Additional:
 H = ceil(T/dt_pilco);              % no. of timesteps per rollout
 N = 30;                            % no. of controller optimizations
-Ntest = 1;                         % no. of roll outs to test controller quality
+Ntest = 0;                         % no. of roll outs to test controller quality
 J = 1;                             % no. of initial training rollouts
 K = 1;                             % no. of initial states for which we optimize
 colorVec = {'r','b','g','k','m','c','y','r-.','b-.','g-.','k-.','m-.','c-.','y-.',...
@@ -205,7 +206,7 @@ Du = length(policy.maxU);
 multTargets(1,:) = [50];
 multTargets(2,:) = [80];
 multTargets(3,:) = [120];
-varTargets = [100];              % initial target variance
+varTargets = [1];              % initial target variance
 
 targets = multTargets(2,:);                % targets for initializing hyperparameters
 seedMatrix = 1:1:J*Du;
@@ -273,6 +274,7 @@ fantasy.mean = cell(1,N+J); fantasy.std = cell(1,N+J);
 realCost = cell(1,N+J);  latent = cell(1,N+J);  realAcumCost = zeros(1,N+J);
 M = cell(N,1);  Sigma = cell(N,1);
 Mfull = cell(N,1); Sfull = cell(N,1);
+a = cell(N,1);
 
 insertSuccess = zeros(1,N+J); reference = zeros(H+1,length(dyno));
 

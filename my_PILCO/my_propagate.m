@@ -78,6 +78,7 @@ i = poli; j = 1:D1; k = D1+1:D2;
 [M(k) S(k,k) C] = policy.fcn(policy, mm(i), ss(i,i));
 q = S(j,i)*C; S(j,k) = q; S(k,j) = q';
 
+M(k) = 50;
 % [mTest, sTest, cTest]  = policy.fcn(policy, mm(i), zeros(length(i)));
 % disp(['control mean for uncertain state: ' num2str(M(k)')])
 % disp(['control mean for certain state: ' num2str(mTest')]);
