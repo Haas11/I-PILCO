@@ -43,7 +43,9 @@ pose3Send = false;
 % Initialize the ROS infrastructure:
 bufferSize = 10;
 relativeVelocity = 0.1;
+
 handles = initROSiiwa(bufferSize, plant.dt, relativeVelocity, 'slip');
+
 poseCommandMsg = handles.poseCommandMsg;
 jointCommandMsg = handles.jointCommandMsg;
 
@@ -166,44 +168,44 @@ try
         response = call(handles.client, handles.config, 'Timeout', 0.2);
         if response.Success
             
-            %             % New reference per point of interest:
-            %             if i < round(H/3) && ~pose1Send
-            %                 pos = transl(Href(:,:,1));              % position
-            %                 quat = Quaternion(Href(:,:,1)).double;  % orientation
-            %                 poseCommandMsg.Pose.Position.X = pos(1);
-            %                 poseCommandMsg.Pose.Position.Y = pos(2);
-            %                 poseCommandMsg.Pose.Position.Z = pos(3);
-            %                 poseCommandMsg.Pose.Orientation.X = quat(1);
-            %                 poseCommandMsg.Pose.Orientation.Y = quat(2);
-            %                 poseCommandMsg.Pose.Orientation.Z = quat(3);
-            %                 poseCommandMsg.Pose.Orientation.W = quat(4);
-            %                 send(handles.pubCartesianPose,poseCommandMsg);
-            %                 pose1Send = true;
-            %             elseif i>round(H/3) && i<round(H*2/3) && ~pose2Send
-            %                 pos = transl(Href(:,:,2));              % position
-            %                 quat = Quaternion(Href(:,:,2)).double;  % orientation
-            %                 poseCommandMsg.Pose.Position.X = pos(1);
-            %                 poseCommandMsg.Pose.Position.Y = pos(2);
-            %                 poseCommandMsg.Pose.Position.Z = pos(3);
-            %                 poseCommandMsg.Pose.Orientation.X = quat(1);
-            %                 poseCommandMsg.Pose.Orientation.Y = quat(2);
-            %                 poseCommandMsg.Pose.Orientation.Z = quat(3);
-            %                 poseCommandMsg.Pose.Orientation.W = quat(4);
-            %                 send(handles.pubCartesianPose,poseCommandMsg);
-            %                 pose2Send = true;
-            %             elseif i>round(H*2/3) && ~pose3Send
-            %                 pos = transl(Href(:,:,3));              % position
-            %                 quat = Quaternion(Href(:,:,3)).double;  % orientation
-            %                 poseCommandMsg.Pose.Position.X = pos(1);
-            %                 poseCommandMsg.Pose.Position.Y = pos(2);
-            %                 poseCommandMsg.Pose.Position.Z = pos(3);
-            %                 poseCommandMsg.Pose.Orientation.X = quat(1);
-            %                 poseCommandMsg.Pose.Orientation.Y = quat(2);
-            %                 poseCommandMsg.Pose.Orientation.Z = quat(3);
-            %                 poseCommandMsg.Pose.Orientation.W = quat(4);
-            %                 send(handles.pubCartesianPose,poseCommandMsg);
-            %                 pose3Send = true;
-            %             end
+                        % New reference per point of interest:
+                        if i < round(H/3) && ~pose1Send
+                            pos = transl(Href(:,:,1));              % position
+                            quat = Quaternion(Href(:,:,1)).double;  % orientation
+                            poseCommandMsg.Pose.Position.X = pos(1);
+                            poseCommandMsg.Pose.Position.Y = pos(2);
+                            poseCommandMsg.Pose.Position.Z = pos(3);
+                            poseCommandMsg.Pose.Orientation.X = quat(1);
+                            poseCommandMsg.Pose.Orientation.Y = quat(2);
+                            poseCommandMsg.Pose.Orientation.Z = quat(3);
+                            poseCommandMsg.Pose.Orientation.W = quat(4);
+                            send(handles.pubCartesianPose,poseCommandMsg);
+                            pose1Send = true;
+                        elseif i>round(H/3) && i<round(H*2/3) && ~pose2Send
+                            pos = transl(Href(:,:,2));              % position
+                            quat = Quaternion(Href(:,:,2)).double;  % orientation
+                            poseCommandMsg.Pose.Position.X = pos(1);
+                            poseCommandMsg.Pose.Position.Y = pos(2);
+                            poseCommandMsg.Pose.Position.Z = pos(3);
+                            poseCommandMsg.Pose.Orientation.X = quat(1);
+                            poseCommandMsg.Pose.Orientation.Y = quat(2);
+                            poseCommandMsg.Pose.Orientation.Z = quat(3);
+                            poseCommandMsg.Pose.Orientation.W = quat(4);
+                            send(handles.pubCartesianPose,poseCommandMsg);
+                            pose2Send = true;
+                        elseif i>round(H*2/3) && ~pose3Send
+                            pos = transl(Href(:,:,3));              % position
+                            quat = Quaternion(Href(:,:,3)).double;  % orientation
+                            poseCommandMsg.Pose.Position.X = pos(1);
+                            poseCommandMsg.Pose.Position.Y = pos(2);
+                            poseCommandMsg.Pose.Position.Z = pos(3);
+                            poseCommandMsg.Pose.Orientation.X = quat(1);
+                            poseCommandMsg.Pose.Orientation.Y = quat(2);
+                            poseCommandMsg.Pose.Orientation.Z = quat(3);
+                            poseCommandMsg.Pose.Orientation.W = quat(4);
+                            send(handles.pubCartesianPose,poseCommandMsg);
+                            pose3Send = true;
+                        end
             
             % New Reference time step:
             posCommand = transl(Href(:,:,i));              % position Vector
