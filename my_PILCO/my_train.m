@@ -48,25 +48,12 @@ D = size(gpmodel.inputs,2);     % no. of inputs
 E = size(gpmodel.targets,2);    % no. of targets
 covfunc = {'covSum', {'covSEard', 'covNoise'}};        % specify ARD covariance
 
-curb.snr = 500;
-curb.ls = 100;
-curb.std = std(gpmodel.inputs);   % set hyp curb   std(inputs) = 0 causes inf/NaN problems!!
+curb.snr = 1000; % signal-to-noise penalty
+curb.ls = 100;   % length scale penalty
+curb.std = std(gpmodel.inputs);   
+curb.p = 30;    % penalty power
 
-if ~isfield(gpmodel,'hyp')  % if we don't pass in hyper-parameters, define them
-    gpmodel.hyp = zeros(D+2,E); nlml = zeros(1,E);
-    lh = repmat([log(std(gpmodel.inputs)) 0 -1]',1,E);   % init hyp length scales
-    lh(D+1,:) = log(std(gpmodel.targets));                      %  signal std dev
-    lh(D+2,:) = log(std(gpmodel.targets)/10);                     % noise std dev
-    for i=1:size(gpmodel.inputs,2)
-        if std(gpmodel.inputs(:,i)) < 1e-4      % avoid numerical instability on init
-            warning('Standard deviation smaller than %6.2f, setting parameters to 1',1e-4)
-            lh(i,:) = ones(1,E);
-            curb.std(i) = 1;
-        end
-    end
-else
-    lh = gpmodel.hyp;                                       % GP hyper-parameters
-end
+lh = gpmodel.hyp;                                       % GP hyper-parameters
 
 % 2a) Train full GP (always)
 if isfield(gpmodel,'parallel') && gpmodel.parallel

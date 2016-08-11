@@ -38,9 +38,9 @@
 
 function [M, S, C, dMdm, dSdm, dCdm, dMdv, dSdv, dCdv] = my_mixedGSat(m, v, i, e, policy)
 %% Code
-d = length(m);      % length of input mean (for policy = no of actions)
+d = length(m);      % length of input mean (= ldyni + Du)
 I = length(i);      % number of entries to saturate
-i = i(:)';          % list of indicies
+i = i(:)';          % list of indicies to saturate
 
 if nargin < 4
     e = ones(1, I); 

@@ -38,9 +38,10 @@ if nargin < 5
     curb.snr = 500; 
     curb.ls = 100; 
     curb.std = 1; 
+    curb.p = 30;
 end   % set default
 
-p = 20;                                                     % penalty power
+p = curb.p;                                                     % penalty power
 D = size(x,2);
 if size(lh,1) == 3*D+2
     li = 1:2*D; 

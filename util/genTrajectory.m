@@ -1,11 +1,11 @@
-function [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td] = genTrajectory(robot, peg, T0, T1, xhole, xc, T,  dt)
+function [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td] = genTrajectory(robot, peg, H0, H1, H2, H3, xhole, xc, T,  dt)
 global vert fac
 vert = ones(8,3); vert(1,1) = xc(1); vert(4:5,1) = xc(1); vert(8,1) = xc(1);
 vert(1:2,2:3) = -1; vert(3:4,3) = -1; vert(5:6,2) = -1;
 fac = [1 2 6 5;2 3 7 6;3 4 8 7;4 1 5 8;1 2 3 4;5 6 7 8];
 
 % Test trajectory:
-t1 = T/3;
+t1 = 2*T/5;
 t2 = 2*T/4;
 t3 = 3*T/4;
 t_total     = (0:dt:T)';
@@ -19,25 +19,25 @@ dq0 = zeros(1,robot.n);    % initial config
 
 xhole2 = xhole + [0.05 0 0];
 Thole1 = transl(xhole); Thole2 = transl(xhole2);
+[R0,~] = tr2rt(H0);
 
 if ~peg
     fprintf('Generating compliance test trajectory...\n');
-    T0 = transl(0.4, 0, 0); q0 = robot.ikine(T0,q0_est,[1 1 0 0 0 1]);
-    robot.plot(q0); patch('Vertices',vert,'Faces',fac,'FaceVertexCData',hsv(6),'FaceColor','flat');
+    q0 = robot.ikine(H0,q0_est,[1 1 0 0 0 1]);
+    robot.plot(q0); 
+    patch('Vertices',vert,'Faces',fac,'FaceVertexCData',hsv(6),'FaceColor','flat');
+        
+    Hf = transl(0.5, 0.1, 0);    
     
-    T1 = transl(0.5, 0, 0);                         % end config in task space
-    T2 = transl(0.5, 0.15, 0);
-    T3 = transl(0.5, 0.05, 0);
-    Tf = transl(0.5, 0.1, 0);
-    
-    Tcart1 = ctraj(T0,T1,length(t_approach));           % Cartesian trajectory generation
-    Tcart2 = ctraj(T1, T2, length(t_contact1));
-    Tcart3 = ctraj(T2, T3, length(t_contact2));
-    Tcart4 = ctraj(T3, Tf, length(t_final));
+    [xe1, ~, ~] = mtraj(@tpoly, transl(H0)', transl(H1)', t_approach);
+    [xe2, ~, ~] = mtraj(@tpoly, transl(H1)', transl(H2)', t_contact1);
+    [xe3, ~, ~] = mtraj(@tpoly, transl(H2)', transl(H3)', t_contact2);
+    [xe4, ~, ~] = mtraj(@tpoly, transl(H3)', transl(Hf)', t_final);
+
+    Tcart1 = transl(xe1);    Tcart2 = transl(xe2);    Tcart3 = transl(xe3);    Tcart4 = transl(xe4);      
     Ttot = cat(3,Tcart1,Tcart2,Tcart3, Tcart4);
-    xe_des = [transl(Ttot), tr2eul(Ttot)];        % extract position/pose
     
-    xe_des = [transl(Ttot), tr2rpy(Ttot)];          % extract des position
+    xe_des = [transl(Ttot), tr2rpy(Ttot)];          % extract des position  (xyz)
     dxe_des = [zeros(1,6); diff(xe_des)/dt];        % differentiate for des velocity
     ddxe_des = [zeros(1,6); diff(dxe_des)/dt];      % second difference for des acceleration
     
@@ -57,20 +57,34 @@ elseif peg
     t_rest      = [t3:dt:T]';
     
     if robot.isspherical
-        q0 = robot.ikine6s(T0);
+        q0 = robot.ikine6s(H0);
     elseif robot.n < 6
-        q0 = robot.ikine(T0,q0_est,[1 1 0 0 0 1],'pinv');  % numerical inverse kinematics
+        q0 = robot.ikine(H0,q0_est,[1 1 0 0 0 1],'pinv');  % numerical inverse kinematics
     elseif robot.n > 3
-        [q0,~] = robot.ikcon(T0);
+        [q0,~] = robot.ikcon(H0);
     end
     
     %T1 = transl(xhole(1), 0, 0);                          % next config in task space
     
-    Tcart1 = ctraj(T0, T1, length(t_approach));           % Cartesian trajectory generation
-    Tcart2 = ctraj(T1, Thole1, length(t_contact1));
-    Tcart3 = ctraj(Thole1, Thole2, length(t_insert));
-    Tcart4 = ctraj(Thole2, Thole2, length(t_rest));
+    % @lspb  = Trapizoidal function
+    % @tpoly = 5th-order polynomial function
+    % 
+%     Tcart1 = ctraj(T0, T1, length(t_approach));           % Cartesian trajectory generation
+%     Tcart2 = ctraj(T1, Thole1, length(t_contact1));
+%     Tcart3 = ctraj(Thole1, Thole2, length(t_insert));
+%     Tcart4 = ctraj(Thole2, Thole2, length(t_rest));
     
+%     Thole1 = T1; Thole2=T1;
+    [xe1, ~, ~] = mtraj(@tpoly, transl(T0)', transl(T1)', t_approach);
+    [xe2, ~, ~] = mtraj(@tpoly, transl(H1)', transl(Thole1)', t_contact1);
+    [xe3, ~, ~] = mtraj(@tpoly, transl(Thole1)', transl(Thole2)', t_insert);
+    [xe4, ~, ~] = mtraj(@tpoly, transl(Thole2)', transl(Thole2)', t_rest);
+
+    Tcart1 = transl(xe1);
+    Tcart2 = transl(xe2);
+    Tcart3 = transl(xe3);
+    Tcart4 = transl(xe4);
+
     Ttot = cat(3,Tcart1,Tcart2,Tcart3,Tcart4);
     
     xe_des = [transl(Ttot), tr2rpy(Ttot)];          % extract des position
@@ -84,7 +98,7 @@ end
 
 Hf = Ttot(:,:,end);
 F0 = zeros(1,6);
-xe0 = [transl(T0)', tr2rpy(T0)];
+xe0 = [transl(H0)', tr2rpy(H0)];
 dxe0 = zeros(1,6);
 
 mu0 = [q0, dq0, xe0, dxe0, F0, 0]; %[q dq xe dxe Fext t]

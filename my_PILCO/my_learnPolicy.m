@@ -27,25 +27,52 @@ if diffChecks && valueCheck
         checkFailed = 1;
     end
 end
-
 gpCheck = 0;
 
 % 1. Update the policy
-[policy.p, fX3] = minimize(policy.p, 'my_value', opt, mu0Sim', S0Sim, ...
-    dynmodel, policy, plant, cost, H);
-
-% 2. Predict state trajectory from p(x0) and compute cost trajectory
-[M{j}, Sigma{j}] = my_pred(policy, plant, dynmodel, mu0Sim', S0Sim, H);
-[fantasy.mean{j}, fantasy.std{j}] =  my_calcCost(cost, M{j}, Sigma{j}, policy, plant);
+if K==1
+    % optimize for single start state
+    [policy.p, fX3] = minimize(policy.p, 'my_value', opt, mu0Sim', S0Sim, ...
+        dynmodel, policy, plant, cost, H);
+    
+    % 2. Predict state trajectory from p(x0) and compute cost trajectory
+    [M{j}, Sigma{j}, Mcon{j}, Scon{j}] = my_pred(policy, plant, dynmodel, mu0Sim', S0Sim, H);
+    [fantasy.mean{j}, fantasy.std{j}] =  my_calcCost(cost, M{j}, Sigma{j}, policy, plant);
+    
+    
+else
+    % randomize multiple start states
+    mu0MultiSim = mu0Sim';
+    for k=1:K
+        mu0MultiSim(:,k+1) = mu0MultiSim(:,1)+((2*rand(size(startStateInterval))-1).*startStateInterval);
+    end
+    
+    [policy.p, fX3] = minimize(policy.p, 'my_multiValue', opt, mu0MultiSim, S0Sim, ...
+        dynmodel, policy, plant, cost, H);
+    
+    % 2. Predict state trajectories and cost:
+    [fantasy.mean{j}, fantasy.std{j}, M_multi{j}, S_multi{j}, Mcon_multi{j}, Scon_multi{j}] = my_predcost(mu0MultiSim, S0Sim, dynmodel, plant, policy, cost, H);
+    
+    % nominal trajectories for plotting in figure(4);
+    M{j} = M_multi{j}{1};
+    Sigma{j} = S_multi{j}{1};
+    
+    Mcon{j} = Mcon_multi{j}{1};
+    Scon{j} = Scon_multi{j}{1};    
+end
 
 if compareToFullModel && numel(dynmodel.induce) ~= 0
     dynmodel.full = true;   % force full model predictions (gp0)
     [Mfull{j}, Sfull{j}] = my_pred(policy, plant, dynmodel, mu0Sim', S0Sim, H);     % compute trajectory based on full GP model
     dynmodel.full = false;  % revert to sparse for next iter. (gp1d)
-    if j==15
-        compareToFullModel = false;     % stop comparison after 10 trials (saves time)
+    if j==25
+        compareToFullModel = false;     % stop comparison after 25 trials (saves time)
     end
 end
+
+% Fantasy World:
+fantasy.acumMean(j) = sum(fantasy.mean{j});
+fantasy.acumStd(j) = sum(fantasy.std{j});
 
 %% Derivative Checks [DEBUG]
 if diffChecks       % perform derivate checks [DEBUG]

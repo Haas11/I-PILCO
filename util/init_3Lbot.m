@@ -11,16 +11,16 @@ link2 = Revolute('d',0,'a',l2,'alpha',0,...
 link3 = Revolute('d',0,'a',l3,'alpha',0,...
     'm',m2,'r',[-l3/2, 0, 0] ,'I',[0, 0, m3*l3/12],'B',B3,'Tc',Tc3,'G',1,'Jm',Jm3);
 robot = SerialLink([link1, link2, link3], 'name', '3link-robot',...
-    'base',[eye(3), zeros(3,1); zeros(1,3), 1], 'qlim',[-pi, pi; -pi, pi; -pi, pi],...
+    'base',[eye(3), zeros(3,1); zeros(1,3), 1], 'qlim',[-1, 1; -1, 1; -1, 1]*99*pi/100,...
     'tool',[eye(3), zeros(3,1); zeros(1,3), 1]);
 robot.gravity = [0, -9.81, 0];
 robot.plotopt = {'jaxes','delay',dt_pilco,'trail','y--','zoom',0.75,'scale',0.75};
 n = robot.n; m = 3;
 robot.fast = 1;
 
-fprintf('\nDynamics perturbed by %2.2f percent.\n',dynPert);
-perturbedRobot = robot.perturb(dynPert); % perturbed robot model
+fprintf('\nDynamics perturbed by %2.2f percent.\n',dynPert);    % perturb robot by dynPert [%]
+perturbedRobot = my_perturb(robot,dynPert); % perturbed robot model
 perturbedRobot.gravity = robot.gravity;
 
-perturbedRobotNF = perturbedRobot.nofriction('all');
+perturbedRobotNF = perturbedRobot;%.nofriction('all');
 perturbedRobotNF.gravity = robot.gravity;

@@ -17,6 +17,8 @@
 % TODO: CONSIDER PASSING VARIABLE START STATE BACK AND USING THAT AS IC FOR
 % PREDICTED STATE TRAJECTORY IN PREDCOST.M OR PRED.M
 
+tempCost = [];
+
 [xx, yy, realCost{j+J}, latent{j+J}, rr] = ...
     my_rollout(mu0, policy, H, plant, robot); %#ok<*IJCL>
 
@@ -43,16 +45,20 @@ tempCost = [realCost{J+j}; ones(lengthDiff,1)];
 testLati = cell(1,Ntest);
 testCosti = cell(1,Ntest);
 for i=1:Ntest
-    [~,~,testCosti{i},testLati{i}, ~] = my_rollout(mu0, policy, H, plant, robot);
+    [~,~,testCosti{i},testLati{i}, ~] = my_rollout(mu0, policy, HH, plant, robot);
     
-    lengthDiff = H-size(testCosti{i},1);
-    if lengthDiff==0                           % rollout was completed
+    % determine if rollout aborted, failed or successful:
+    if size(latent{j+J},1) > H-5                            % rollout was completed
         insertSuccess{j+1}(i+1) = 1;
-        if abs(mean(testLati{i}(end-5:end,dyno(1)) - (xhole(1)+0.05))) < 0.01;
+        if abs(mean(latent{j+J}(end-5:end,dyno(1)) - (xhole(1)+0.05))) < 0.01;
             insertSuccess{j+1}(i+1) = 2;                     % successful insertion
         end
         
-        tempCost = [tempCost, [testCosti{i}; ones(lengthDiff,1)]];          % concatenate with ones if rollout aborted
+        tempCost = [tempCost, testCosti{i}];
+    else
+        % aborted rollout
+        lengthDiff = H-size(testCosti{i},1);
+        tempCost = [tempCost, [testCosti{i}; ones(lengthDiff,1)]];
     end
 end
 testLat{j} = testLati;
@@ -73,8 +79,7 @@ end
 
 %% verbosity
 if plotting.verbosity > 0
-    % Cost During Last Trials
-    if ~ishandle(3)         
+    if ~ishandle(3)         % Cost plot
         figure(3);
     else
         set(0,'CurrentFigure',3);
@@ -91,8 +96,7 @@ if plotting.verbosity > 0
     axis tight;
     drawnow;
     
-    % Actions over all iterations:
-    if ~ishandle(6)         
+    if ~ishandle(6)         % Action plot
         figure(6);
     else
         set(0,'CurrentFigure',6);
@@ -108,11 +112,10 @@ if plotting.verbosity > 0
         axis tight
     end
     
-    % COST OVER ALL ITERATIONS:
+    % COST OVER ITERATIONS:
     run plotCost.m
     
     if plotting.verbosity > 1
-        % GP Model predictions:
         if ~ishandle(4)
             figure(4);
         else
@@ -165,7 +168,6 @@ if plotting.verbosity > 0
         end
         drawnow;
         
-        % Actions during latest rollout:
         if ~ishandle(11)
             figure(11);
         else
@@ -184,9 +186,8 @@ if plotting.verbosity > 0
         drawnow;
         
         if plotting.verbosity > 2
-            % robot animation
             q_sim = latent{j+J}(:,1:robot.n);
-            if ~ishandle(5)         
+            if ~ishandle(5)         % robot animation
                 figure(5);
             else
                 set(0,'CurrentFigure',5);

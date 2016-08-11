@@ -156,10 +156,10 @@ if isfield(cost,'ep') && cost.ep ~= 0
         dynotemp = 1:1:ldyno;
         comp = ismember(dynotemp,poli);                                     % compare inputs 		[1 x ldyno]         
         relevantIdx = find(comp==1);                                        % relevant indices  	[1 x lpoli]             (only consider derivative of states that are inputs to the policy)
-        dmads3D = reshape(dmads,[nU lpoli lpoli]);                          % reshape derivative of conrol mean w.r.t. policy input state covariances to 3D matrix
+        dmads3D = reshape(dmads,[nU,lpoli,lpoli]);                          % reshape derivative of conrol mean w.r.t. policy input state covariances to 3D matrix
         
-        dmads_con = zeros(nU,ldyno,ldyno);                                  % 3D-matrix of derivative of control mean w.r.t. all GP output state covariances  [nU x ldyno x ldyno]
-        dmads_con(:,relevantIdx,relevantIdx) = dmads3D(:,:,:);              % fill this matrix at the input dimensions of the policy
+        dmads_con = zeros(nU,ldyno,ldyno);                                  % 3D-matrix of derivative of control mean w.r.t. all GP s			[nU x ldyno x ldyno]    ()
+        dmads_con(:,relevantIdx,relevantIdx) = dmads3D(:,:,:);              % fill at proper places
         dmads_con = reshape(dmads_con,[nU ldyno^2]);                        % reshape back to 2D 	[nU x ldyno^2]
         
         dMads = dmads_con(idx,:);                                           % select impedance part [nUi x ldyno^2]                

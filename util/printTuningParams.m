@@ -6,6 +6,8 @@ fprintf('GP Model parameters:\n')
 fprintf('=====================================================\n');
 fprintf('Outputs: \t\t\t')
 disp(stateNames(indices(dyno)))
+fprintf('Inputs: \t\t\t')
+disp(stateNames(indices(dyno(dyni))))
 fprintf('Outputs that are differences:')
 disp(stateNames(indices(dyno(difi))))
 fprintf('\nOutputs w/ prior reference:')

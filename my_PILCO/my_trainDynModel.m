@@ -33,7 +33,8 @@ dynmodel.inputs = [xaug(:,dyni) x(:,end-Du+1:end)];     % use dyni and ctrl
 state_target = y(:,dyno);                                           % x_{t+1}     [H x nX]
 state_target(:,difi) = state_target(:,difi) - x(:,dyno(difi));      % delta_t   [H x nX]
 dynmodel.targets = state_target;                                    % prior mean = 0
-        
+
+
 if REF_PRIOR    % prior mean = reference
 %     if ~isfield(policy,'refIdx') || isempty(policy.refIdx)  % when not learning trajectories
 %         
@@ -86,8 +87,8 @@ E = size(dynmodel.targets,2);    % no. of targets
 if ~isfield(dynmodel,'hyp')  % if we don't pass in hyper-parameters, define them
     dynmodel.hyp = zeros(D+2,E);
     dynmodel.hyp = repmat([log(std(dynmodel.inputs)) 0 -1]',1,E);   % init hyp length scales
-    dynmodel.hyp(D+1,:) = log(std(dynmodel.targets));                        % signal std dev
-    dynmodel.hyp(D+2,:) = log(std(dynmodel.targets)/10);                     % noise std dev (SNR = 100)
+    dynmodel.hyp(D+1,:) = log( std(dynmodel.targets) );                        % signal std dev
+    dynmodel.hyp(D+2,:) = log( (std(dynmodel.targets)/5) );                     % noise std dev (SNR = 5)
     for kk=1:D
         if std(dynmodel.inputs(:,kk)) < 1e-4      % avoid numerical instability on init
             warning('Standard deviation smaller than %6.2f, setting parameters to 1',1e-4)
@@ -106,7 +107,7 @@ if noisyInputs
     % TODO: Make possible for learning sparse approximation!
     
     if j==1     % first iteration of learning
-        [inputNoiseModel, fx] = trainNIGP(dynmodel.inputs,dynmodel.targets,Nls,trainMode,dynmodel.hyp,inputNoiseSTD');
+        [inputNoiseModel, fx] = trainNIGP(dynmodel.inputs,dynmodel.targets,Nls,trainMode,dynmodel.hyp);%,log(inputNoiseSTD'));
     else        % use previous estimate of input noise variance as startpoint
         [inputNoiseModel, fx] = trainNIGP(dynmodel.inputs,dynmodel.targets,Nls,trainMode,dynmodel.hyp,lsipn);
     end
@@ -119,6 +120,7 @@ if noisyInputs
     
     dynmodel.hyp = logHyp;
     dynmodel.nigp = correctionTerms;
+
 else
     dynmodel = dynmodel.train(dynmodel, plant, trainOpt);  %  train dynamics GP with deterministic inputs
 end
@@ -129,8 +131,10 @@ postHyp = dynmodel.hyp;
 disp(['Learned output noise std : ' num2str(exp(postHyp(end,:)))]);
 % signal-to-noise ratios (values > 500 can cause numerical problems)
 disp(['SNRs                     : ' num2str(exp(postHyp(end-1,:)-postHyp(end,:)))]);
-% Change in parameters:
-if j>1
-    disp('Change in hyperparameters: '  );
-    disp(num2str(postHyp - preHyp));
-end
+disp(num2str(exp(postHyp)));            
+
+% if j>1
+%     disp('Change in hyperparameters: '  );
+%     disp(num2str(postHyp - preHyp));
+% end
+
