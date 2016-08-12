@@ -75,7 +75,12 @@ Mds = zeros(D1,D0*D0);
 Sds = kron(Mdm,Mdm);
 
 % 2. Define static penalty as distance from target setpoint
-Q = eye(D0);
+if isfield(cost,'weight')
+    W = diag(cost.weight);
+else
+    W = 1;
+end
+Q = eye(D0)*W;      % diagonal weight term per state
 
 % 3. Trigonometric augmentation
 if D1-D0 > 0

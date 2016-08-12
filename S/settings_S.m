@@ -104,7 +104,7 @@ odei = 1:1:2*n+6;
 augi    = [];                                           % augi  indicies for variables augmented to the ode variables
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
 dyno    = [7 8 13 14 19 25];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
-dyni    = [1 2 3 4 6];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
+dyni    = [1 2 3 4];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
 difi    = [1 2 3 4];                              % difi  indicies for training targets that are differences                      (subset of dyno)
 poli    = [1 2 3 4 5];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
 refi    = [1 2 3 4];                                 % indices for which to encode a reference as  prior mean
@@ -212,7 +212,7 @@ plant.rollout_model = 'IPILCO_relativeRPY_S';
 plant.indices = indices;
 
 %% 4. Set up the policy structure
-policy.maxU  = [100 100]./2; policy.minU  = [10 10];
+policy.maxU  = [150 150]./2; policy.minU  = [10 10];
 policy.impIdx = [1 2]; policy.refIdx = [];
 Du = length(policy.maxU);
 
@@ -304,8 +304,8 @@ realCost = cell(1,N+J);  latent = cell(1,N+J);  realAcumCost = zeros(1,N+J);
 testLat = cell(N,1);    testCost = cell(N,1);
 M = cell(N,1);  Sigma = cell(N,1); Mcon = cell(N,1); Scon = cell(N,1);
 Mfull = cell(N,1); Sfull = cell(N,1);
-
-insertSuccess = zeros(1,N+J); reference = zeros(H+1,length(dyno));
+insertSuccess = cell(1,N+1);    scoreCard = zeros(1,N+1);
+reference = zeros(H+1,length(dyno));
 
 %%
 % fantasy.mean{N} = []; fantasy.std{N} = [];

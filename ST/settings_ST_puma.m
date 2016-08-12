@@ -30,32 +30,30 @@
 %  2  theta2         angle second link
 %  3  theta3         angle third link
 
-%  4  dtheta1        angular velocity of 1st pendulum
-%  5  dtheta2        angular velocity of 2nd pendulum
-%  6  dtheta3        angular velocity of 2nd pendulum
+%  4  theta4        angular velocity of 1st pendulum
+%  5  theta5        angular velocity of 2nd pendulum
+%  6  theta6        angular velocity of 2nd pendulum
 
-%  7  X              x-position end-effector in world frame
-%  8  Y              y-position end-effector in world frame
-%  9  Z              z-position end-effector in world frame
-% 10  Alpha
-% 11  Gamma
-% 12  Phi            angle around z
+%  13  X              x-position end-effector in world frame
+%  14  Y              y-position end-effector in world frame
+%  15  Z              z-position end-effector in world frame
+% 16  Alpha
+% 17  Gamma
+% 18  Phi            angle around z
 
-% 13  dX             x-velocity end-effector in world frame
-% 14  dY             y-velocity end-effector in world frame
-% 15  dZ             z-velocity end-effector in world frame
-% 16  dAlpha         Alpha-angular velocity  in world frame
-% 17  dGamma         Gamma-angular velocity  in world frame
-% 18  dPhi           Phi-angular velocity    in world frame
+% 19  dX             x-velocity end-effector in world frame
+% 20  dY             y-velocity end-effector in world frame
+% 21  dZ             z-velocity end-effector in world frame
+% 22  dAlpha         Alpha-angular velocity  in world frame
+% 23  dGamma         Gamma-angular velocity  in world frame
+% 24  dPhi           Phi-angular velocity    in world frame
 
-% 19  Fx             Cartesian x-force in world frame
-% 20  Fy             Cartesian y-force in world frame
-% 21  Fz             Cartesian z-force in world frame
-% 22  Fa             Cartesian alpha torque in world frame
-% 23  Fg             Cartesian gamma torque in world frame
-% 24  Fp             Cartesian phi   torque in world frame
-
-% 25 t               time vector
+% 25  Fx             Cartesian x-force in world frame
+% 26  Fy             Cartesian y-force in world frame
+% 27  Fz             Cartesian z-force in world frame
+% 28  Fa             Cartesian alpha torque in world frame
+% 29  Fg             Cartesian gamma torque in world frame
+% 30  Fp             Cartesian phi   torque in world frame
 
 % 25  Kp_x           Cartesian stiffness in x
 % 26  Kp_y           Cartesian stiffness in y
@@ -83,7 +81,7 @@ global diffTol conCheck gpCheck propCheck valueCheck satCheck lossCheck checkFai
 diffChecks = 0;  diffTol   = 1e-3;  checkFailed = 0;
 conCheck   = 0;  gpCheck   = 0;     propCheck   = 0;    % GP check = very heavy!
 valueCheck = 1;  satCheck  = 0;     lossCheck   = 0;
-stateNames = {'theta1','theta1','theta1','dtheta1','dtheta1','dtheta1',...
+stateNames = {'theta1','theta1','theta1','dtheta1','dtheta1','dtheta1','dtheta1','dtheta1','dtheta1','dtheta1','dtheta1','dtheta1',...
     'xe_x','xe_y','xe_z','alpha','gamma','phi','dxe_x','dxe_y','dxe_z',...
     'dalpha','dgamma','dphi','Fx','Fy','Fz','Tx','Ty','Tz','t'};
 
@@ -105,7 +103,7 @@ n=3;
 odei = 1:1:2*n+6;
 augi    = [];                                           % augi  indicies for variables augmented to the ode variables
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
-dyno    = [7 8 13 14 19 20];                            % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
+dyno    = [13 14 19 20 25 26];                            % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
 dyni    = [1 2 3 4 5 6];                                  % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
 difi    = [1 2 3 4 5 6];                                % difi  indicies for training targets that are differences                      (subset of dyno)
 poli    = [1 2 3 4];                                  % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
@@ -113,15 +111,13 @@ poli    = [1 2 3 4];                                  % poli  indicies for varia
 REF_PRIOR  = 0;                                         % encode prior reference mean?
 refi    = [];                                           % indices for which to encode a reference as  prior mean
 ref_select = [1 2 7 8 13 14];                           % indices of reference corresponding to dyno    [xe dxe F]
-% posi = [1 2];
-% veli = [3 4];
 
 dynoTitles = stateNames(indices(dyno));
 actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]', 'ref_x','ref_y'};%, 'Kp_{rot} [Nm/rad]'};
 
 %% 2. Set up the scenario
 % General:
-T = 10;                % [s] Rollout time
+T = 5;                % [s] Rollout time
 N = 30;                            % no. of controller optimizations
 Ntest = 3;                         % no. of roll outs to test controller quality
 J = 1;                             % no. of initial training rollouts
@@ -161,19 +157,17 @@ perturbedRobotNF = perturbedRobot.nofriction('all');
 perturbedRobot.gravity = robot.gravity;
 perturbedRobotNF.gravity = robot.gravity;
 
-%run init_3Lbot.m
-
 % Spatial constraints:
 peg = 0;    % mode
-xhole = [0.5, 0.1, 0];   % center hole location [x, y, phi/z]
+xhole = [0.5, 0.2, 0];   % center hole location [x, y, phi/z]
 xc    = [0.45, 0.45, 0.45, 10, 10, 10]';  % [m] environment constraint location
 
 x0   = [0.35 -0.1 0];
 % H0   = transl(x0);      % start pose end-effector
 H0 = rt2tr(rpy2r([0 0 0]), x0');
 H1   = transl([0.5 0 0]);   
-H2 = transl(0.55, 0.15, 0);
-H3 = transl(0.6, 0.05, 0);
+H2 = transl(0.55, 0.25, 0);
+H3 = transl(0.6, 0.10, 0);
 [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td]...
     = genTrajectory(robot, peg, H0, H1, H2, H3, xhole, xc, T, dt);
 deltaXe_des = diff(xe_des(1:length(t),2:end));
@@ -231,8 +225,8 @@ disp(xhole)
 
 
 %% 3. Set up the plant structure
-outputNoiseSTD = ones(1,length(odei))*0.001.^2;                          % noise added to odei indicies in simulation
-outputNoiseSTD(1,end-5:end) = 0.05^2;
+outputNoiseSTD = ones(1,length(odei))*0.01.^2;                          % noise added to odei indicies in simulation
+outputNoiseSTD(1,end-5:end) = 0.1^2;
 
 plant.noise = diag(outputNoiseSTD);
 plant.dt = dt_pilco;

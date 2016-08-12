@@ -24,7 +24,7 @@ figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
     clf(figHandles(i));
 end
-settings_ST;                  % load scenario-specific settings
+settings_ST_puma;                  % load scenario-specific settings
 ep=num2str(cost.ep);
 expl=num2str(cost.expl);
 basename = strcat('traj_',date,'_','conGP-','_ep-0p',ep(strfind(ep,'.')+1:end),...
@@ -124,7 +124,7 @@ jj=J; initTrial = 0;
 
 %% 3. Controlled learning (N iterations)
 fprintf('\nPILCO Learning started\n--------------------------------\n');
-for j = 1:N
+for j = 2:N
     my_trainDynModel;       % train (GP) dynamics model
     my_learnPolicy;         % update policy
     my_applyController;     % apply controller to system

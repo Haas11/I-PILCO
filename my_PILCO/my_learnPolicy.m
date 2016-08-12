@@ -29,6 +29,9 @@ if diffChecks && valueCheck
 end
 gpCheck = 0;
 
+fprintf('\nPolicy hypers:');
+disp(exp(policy.p.hyp));
+
 % 1. Update the policy
 if K==1
     % optimize for single start state

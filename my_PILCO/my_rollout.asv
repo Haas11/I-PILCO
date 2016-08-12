@@ -82,15 +82,15 @@ nA = length(angi);
 % Simulate Dynamical Model using Simulink
 goodSim = false;
 while ~goodSim
-%     x0trial = [mu0(plant.dyno([1 2])), 0]';
-    x0trial = mu0(2*robot.n+1:2*robot.n+6)';
+    x0trial = [mu0(plant.dyno([1 2])), 0]';
+    x0trial = [mu0(plant.dyno([1 2])), 0]';
     clear ref dref
     if initTrial
         % do nothing
     else
-        x0trial = x0trial + plant.startStateInterval.*(2*rand(6,1)-1);  % perturb by uniform random amount [-S0Trial, +S0Trial]
+        x0trial = x0trial + plant.startStateInterval(1:3).*(2*rand(3,1)-1);  % perturb by uniform random amount [-S0Trial, +S0Trial]
     end
-    Hd0 = rt2tr(rpy2r(x0trial(4:6)'),x0trial(1:3));
+    Hd0 = transl(x0trial);
     
     % Inverse Kinematics for starting angles:
     if x0trial(2)<0
@@ -98,12 +98,8 @@ while ~goodSim
     else
         q0est = [pi/2 -pi/2 0];
     end
-    if robot.n==6 
-        q0 = robot.ikine6s(Hd0);
-    else
     q0 = robot.ikcon(Hd0,q0est);     % w/ joint limits
-    % q0 = robot.ikine(Hd0,q0est);     % without joint limits
-    end
+    %         q0 = robot.ikine(Hd0,q0est,[1 1 0 0 0 1]);     % without joint limits
     Hd0 = robot.fkine(q0);
     x0trial = transl(Hd0);
     

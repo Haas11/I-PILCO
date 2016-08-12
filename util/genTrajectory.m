@@ -23,11 +23,15 @@ Thole1 = transl(xhole); Thole2 = transl(xhole2);
 
 if ~peg
     fprintf('Generating compliance test trajectory...\n');
-    q0 = robot.ikine(H0,q0_est,[1 1 0 0 0 1]);
+    if robot.n==6
+        q0 = robot.ikine6s(H0);
+    else
+        q0 = robot.ikine(H0,q0_est);
+    end
     robot.plot(q0); 
     patch('Vertices',vert,'Faces',fac,'FaceVertexCData',hsv(6),'FaceColor','flat');
         
-    Hf = transl(0.5, 0.1, 0);    
+    Hf = transl(xhole);    
     
     [xe1, ~, ~] = mtraj(@tpoly, transl(H0)', transl(H1)', t_approach);
     [xe2, ~, ~] = mtraj(@tpoly, transl(H1)', transl(H2)', t_contact1);

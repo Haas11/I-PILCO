@@ -30,32 +30,30 @@
 %  2  theta2         angle second link
 %  3  theta3         angle third link
 
-%  4  dtheta1        angular velocity of 1st pendulum
-%  5  dtheta2        angular velocity of 2nd pendulum
-%  6  dtheta3        angular velocity of 2nd pendulum
+%  4  theta4        angular velocity of 1st pendulum
+%  5  theta5        angular velocity of 2nd pendulum
+%  6  theta6        angular velocity of 2nd pendulum
 
-%  7  X              x-position end-effector in world frame
-%  8  Y              y-position end-effector in world frame
-%  9  Z              z-position end-effector in world frame
-% 10  Alpha
-% 11  Gamma
-% 12  Phi            angle around z
+%  13  X              x-position end-effector in world frame
+%  14  Y              y-position end-effector in world frame
+%  15  Z              z-position end-effector in world frame
+% 16  Alpha
+% 17  Gamma
+% 18  Phi            angle around z
 
-% 13  dX             x-velocity end-effector in world frame
-% 14  dY             y-velocity end-effector in world frame
-% 15  dZ             z-velocity end-effector in world frame
-% 16  dAlpha         Alpha-angular velocity  in world frame
-% 17  dGamma         Gamma-angular velocity  in world frame
-% 18  dPhi           Phi-angular velocity    in world frame
+% 19  dX             x-velocity end-effector in world frame
+% 20  dY             y-velocity end-effector in world frame
+% 21  dZ             z-velocity end-effector in world frame
+% 22  dAlpha         Alpha-angular velocity  in world frame
+% 23  dGamma         Gamma-angular velocity  in world frame
+% 24  dPhi           Phi-angular velocity    in world frame
 
-% 19  Fx             Cartesian x-force in world frame
-% 20  Fy             Cartesian y-force in world frame
-% 21  Fz             Cartesian z-force in world frame
-% 22  Fa             Cartesian alpha torque in world frame
-% 23  Fg             Cartesian gamma torque in world frame
-% 24  Fp             Cartesian phi   torque in world frame
-
-% 25 t               time vector
+% 25  Fx             Cartesian x-force in world frame
+% 26  Fy             Cartesian y-force in world frame
+% 27  Fz             Cartesian z-force in world frame
+% 28  Fa             Cartesian alpha torque in world frame
+% 29  Fg             Cartesian gamma torque in world frame
+% 30  Fp             Cartesian phi   torque in world frame
 
 % 25  Kp_x           Cartesian stiffness in x
 % 26  Kp_y           Cartesian stiffness in y
@@ -105,7 +103,7 @@ n=3;
 odei = 1:1:2*n+6;
 augi    = [];                                           % augi  indicies for variables augmented to the ode variables
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
-dyno    = [7 8 13 14 19 20];                            % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
+dyno    = [13 14 19 20];                            % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
 dyni    = [1 2 3 4 5 6];                                  % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
 difi    = [1 2 3 4 5 6];                                % difi  indicies for training targets that are differences                      (subset of dyno)
 poli    = [1 2 3 4];                                  % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
@@ -160,8 +158,6 @@ perturbedRobot = robot.perturb(dynPert); % perturbed robot model
 perturbedRobotNF = perturbedRobot.nofriction('all');
 perturbedRobot.gravity = robot.gravity;
 perturbedRobotNF.gravity = robot.gravity;
-
-%run init_3Lbot.m
 
 % Spatial constraints:
 peg = 0;    % mode
