@@ -1,4 +1,3 @@
-
 %% value.m
 % *Summary:* Compute expected (discounted) cumulative cost for a given (set of) initial
 % state distributions
@@ -83,6 +82,20 @@ else                                                                    % otherw
         % Cost w/ energy penalty:
         m_in = m; S_in = S;
         for t=1:H                                                           % for all time steps in horizon
+            
+            % TODO: CONSIDER TO USE THE ACTION AT PREVIOUS TIMESTEP AS
+            % INPUT TO ENERGY PENALTY.
+            
+            if isfield(cost,'refPen') && cost.refPen
+                % also penalize reference changes
+                idx = [policy.impIdx, policy.refIdx];
+                translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
+            else
+                % only penalize stiffness magnitude
+                idx = policy.impIdx;
+                translVec = ones(size(policy.impIdx)).*2;
+            end
+    
             [m_out, S_out, dmdmO, dSdmO, dmdSO, dSdSO, dmdp, dSdp] = ...
                 plant.prop(m_in, S_in, plant, dynmodel, policy, t);         % get next state
             
@@ -91,10 +104,18 @@ else                                                                    % otherw
             
     		[ma, ~, ~, dmadm, ~, ~, dmads, ~, ~, madp, ~, ~] = ...
                 policy.fcn(policy, m_out(poli), S_out(poli,poli));          % (recompute) control mean + derivatives
-            Madp  = madp(policy.impIdx,:);                                  % derivative of control mean w.r.t. policy params  [nU x P]
-            dLadp = bsxfun(@rdivide,Madp,(policy.maxU(policy.impIdx)'.*2)); % derivative of energy cost  w.r.t. policy params  [nU x P]
-            dLadp = cost.ep*sum(dLadp, 1);                                  % sum individual terms 	[1 x P]
-            
+                        
+            if cost.epType == 2 || (isfield(cost,'refPen') && cost.refPen)
+                Ma_norm = ma(idx)./(policy.maxU(idx).*translVec)';          % normalized relevant actions       [nUi x 1]
+                dLadma = Ma_norm';                                          % derivative for mean squared cost	[1 x nUi]
+            elseif cost.epType == 1
+                dLadma = ones(1,length(idx));                               % derivative for 1-norm cost        [1 x nUi]
+            end
+                    
+            Madp  = madp(idx,:);                                            % derivative of relevant control means w.r.t. policy params  [nUi x P]
+            dLadp = bsxfun(@rdivide,Madp,(policy.maxU(idx)'.*translVec'));  % normalize  [nUi x P]            
+            dLadp = cost.ep*dLadma*dLadp;                           % derivative of energy cost w.r.t. policy params [1 x P] = [1x1][1 x nUi][nUi x P]
+                        
             [L(t), dLdm, dLdS] = cost.fcn(cost, m_out, S_out, ...           
             ma, policy, dmadm, dmads, plant);                               % predictive cost (1) 	dLdm = [1 x D], dLdS = [1 x D^2]
             L(t) = cost.gamma^t*L(t);                                       % discounted predicted cost
@@ -110,4 +131,4 @@ else                                                                    % otherw
 end
 
 J = sum(L);
-dJdp = rewrap(policy.p, dp);                                                % rewrapped hyperparameters [1 x P]
+dJdp = rewrap(policy.p, dp); % rewrapped hyperparameters [1 x P]

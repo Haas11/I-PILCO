@@ -30,7 +30,7 @@
 % # Compute distribution of the next state
 %
 
-function [Mnext, Snext] = my_propagate(m, s, plant, dynmodel, policy, varargin)
+function [Mnext, Snext, Mcon, Scon] = my_propagate(m, s, plant, dynmodel, policy, varargin)
 %% Code
 global diffChecks diffTol gpCheck REF_PRIOR FIRST
 persistent prevRefVel prevRefPos
@@ -78,6 +78,8 @@ i = poli; j = 1:D1; k = D1+1:D2;
 [M(k) S(k,k) C] = policy.fcn(policy, mm(i), ss(i,i));
 q = S(j,i)*C; S(j,k) = q; S(k,j) = q';
 
+Mcon = M(k);
+Scon = S(k,k);
 % [mTest, sTest, cTest]  = policy.fcn(policy, mm(i), zeros(length(i)));
 % disp(['control mean for uncertain state: ' num2str(M(k)')])
 % disp(['control mean for certain state: ' num2str(mTest')]);

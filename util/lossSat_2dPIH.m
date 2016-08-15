@@ -61,6 +61,11 @@ if ~isfield(cost,'expl') || isempty(cost.expl)
 else
     b =  cost.expl; 
 end
+if isfield(cost,'weight')
+    W = diag(cost.weight);
+else
+    W = 1;
+end
 
 % 1. Some precomputations
 D0 = size(s,2);                           % state dimension 
@@ -75,7 +80,7 @@ Mds = zeros(D1,D0*D0);
 Sds = kron(Mdm,Mdm);
 
 % 2. Define static penalty as distance from target setpoint
-Q = eye(D0);
+Q = eye(D0)*W;
 
 % 3. Trigonometric augmentation
 if D1-D0 > 0

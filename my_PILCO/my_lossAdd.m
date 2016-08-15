@@ -3,7 +3,7 @@
 % can be using a different loss function and operating on a different part of
 % the state.
 %
-%       function [L, dLdm, dLds, S, dSdm, dSds, C, dCdm, dCds] = my_lossAdd(cost, m, s, varargin)
+%       function [L, dLdm, dLds, S, dSdm, dSds, C, dCdm, dCds] = my_lossAdd(cost, m, s)
 %
 % *Input arguments:*
 %
@@ -17,14 +17,7 @@
 %
 %    m         mean of input distribution                              [D x 1]
 %    s         covariance matrix of input distribution                 [D x D]
-%   
-%   (Optional Input Arguments):    
-%   ma
-%   policy
-%   dmadm
-%   dmads
-%   plant
-%
+%a
 % *Output arguments:*
 %
 %   L               expected loss                                  [1   x   1]
@@ -114,9 +107,27 @@ if isfield(cost,'ep') && cost.ep ~= 0
     % Control mean:
     ma = varargin{1};                                   % control mean          [1 x nU]
     policy = varargin{2};
-    Ma = ma(policy.impIdx);                         	% select impedance part
-    Ma_norm = Ma./(policy.maxU(policy.impIdx).*2)';		% normalized actions    [nUi x 1]
-    La = cost.ep*sum(Ma_norm,1);                        % energy penalty term 	[1 x 1]
+    
+    if isfield(cost,'refPen') && cost.refPen
+        % also penalize reference changes
+        idx = [policy.impIdx, policy.refIdx];
+        translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
+    else
+        % only penalize stiffness magnitude
+        idx = policy.impIdx;
+        translVec = ones(size(idx)).*2;
+    end
+        
+    Ma = ma(idx);                                       % select impedance part
+    Ma_norm = Ma./(policy.maxU(idx).*translVec)';		% normalized actions    [nUi x 1]
+    
+    if cost.epType == 2 || (isfield(cost,'refPen') && cost.refPen)
+        La = cost.ep*(1/2)*(Ma_norm'*Ma_norm);                    % mean squared energy penalty [1 x 1]
+    elseif cost.epType == 1
+        La = cost.ep*sum(Ma_norm,1);                        % 1-norm energy penalty 	  [1 x 1]
+    else
+        error('Invalid type specified for energy penalty. (choose cost.epType=1 for 1-norm, cost.epType=2 for mean squared)');
+    end        
     L = L + La;
     
     if nargout > 1 && nargin > 5        % energy penalty w/ derivatives
@@ -127,25 +138,33 @@ if isfield(cost,'ep') && cost.ep ~= 0
         dyno  = plant.dyno;     poli = plant.poli;
         ldyno = length(dyno);   lpoli = length(poli);
         nU = length(policy.maxU);       
-        dLadma = ones(1,length(policy.impIdx));                             % derivative of 1 norm 	[1 x nUi]
+        
+        if cost.epType == 2 || (isfield(cost,'refPen') && cost.refPen)
+            dLadma = Ma_norm';                                          % derivative for mean squared cost	[1 x nUi]
+        elseif cost.epType == 1
+            dLadma = ones(1,length(idx));                               % derivative of 1 norm 	[1 x nUi]
+        end
                 
         % deriv control mean w.r.t state mean
-        dmadm_con = [dmadm, zeros(nU,ldyno-lpoli)];                         % concat dif with zeros	[nU  x ldyno]
-        dMadm = dmadm_con(policy.impIdx,:);                                 % select impedance part [nUi x ldyno]        
-        dMadm = bsxfun(@rdivide,dMadm,(policy.maxU(policy.impIdx)'.*2));    % normalize
+        dmadm_con = [dmadm, zeros(nU,ldyno-lpoli)];                         % concat dif with zeros	[nU  x ldyno]  --> index dependent? !!!
+        dMadm = dmadm_con(idx,:);                                 % select impedance part [nUi x ldyno]        
+        dMadm = bsxfun(@rdivide,dMadm,(policy.maxU(idx)'.*translVec'));    % normalize
         
         dLdm = dLdm + cost.ep*dLadma*dMadm;                                 % [1 x ldyno] 	= [1 x ldyno] 	+ [1 x 1][1 x nUi][nUi x ldyno]
                 
-        % deriv control mean w.r.t. state variance
+        % deriv control mean w.r.t. state variance             
         dynotemp = 1:1:ldyno;
-        comp = ismember(dynotemp,poli);                                     % compare inputs 		[1 x ldyno]
-        relevantIdx = find(comp==1);                                        % relevant indices  	[1 x lpoli]        
-        dmads_con = zeros(nU,ldyno,ldyno);                                  % init 	3D				[nU x ldyno x ldyno]
-        dmads3D = reshape(dmads,[nU,lpoli,lpoli]);                          % reshape to 3D
-        dmads_con(:,relevantIdx,relevantIdx) = dmads3D(:,:,:);		% fill at proper places
+        comp = ismember(dynotemp,poli);                                     % compare inputs 		[1 x ldyno]         
+        relevantIdx = find(comp==1);                                        % relevant indices  	[1 x lpoli]             (only consider derivative of states that are inputs to the policy)
+        dmads3D = reshape(dmads,[nU lpoli lpoli]);                          % reshape derivative of conrol mean w.r.t. policy input state covariances to 3D matrix
+        
+        dmads_con = zeros(nU,ldyno,ldyno);                                  % 3D-matrix of derivative of control mean w.r.t. all GP output state covariances  [nU x ldyno x ldyno]
+        dmads_con(:,relevantIdx,relevantIdx) = dmads3D(:,:,:);              % fill this matrix at the input dimensions of the policy
         dmads_con = reshape(dmads_con,[nU ldyno^2]);                        % reshape back to 2D 	[nU x ldyno^2]
-        dMads = dmads_con(policy.impIdx,:);                                 % select impedance part [nUi x ldyno^2]                
-        dMads = bsxfun(@rdivide,dMads,(policy.maxU(policy.impIdx)'.*2));        
+        
+        dMads = dmads_con(idx,:);                                           % select impedance part [nUi x ldyno^2]                
+        dMads = bsxfun(@rdivide,dMads,(policy.maxU(idx)'.*translVec'));     % normalize
+        
         dLds = dLds + cost.ep*dLadma*dMads;                                 % [1 x ldyno^2] = [1 x ldyno^2] + [1 x 1][1 x nUi][nUi x ldyno^2]]
     end
 end

@@ -26,32 +26,32 @@
 %% High-Level Steps
 % # Predict successor state distribution
 
-% function [M, S, Mcon, Scon] = my_pred(policy, plant, dynmodel, m, s, H)
-% %% Code
-% D = length(m); nU = length(policy.maxU);
-% S = zeros(D,D,H+1); M = zeros(D,H+1);
-% Mcon = zeros(nU,H);
-% Scon = zeros(nU,nU,H);
-% M(:,1) = m; S(:,:,1) = s;
-% for t = 1:H
-%     [m, s, mcon, scon, ccon] = plant.prop(m, s, plant, dynmodel, policy, t);
-%     
-%     if nargout > 2
-%         Mcon(:,t) = mcon;
-%         Scon(:,:,t) = scon;
-%     end
-%         
-%     M(:,t+1) = m(end-D+1:end);
-%     S(:,:,t+1) = s(end-D+1:end,end-D+1:end);
-% end
-
-function [M, S] = my_pred(policy, plant, dynmodel, m, s, H)
+function [M, S, Mcon, Scon] = my_pred(policy, plant, dynmodel, m, s, H)
 %% Code
-D = length(m);
+D = length(m); nU = length(policy.maxU);
 S = zeros(D,D,H+1); M = zeros(D,H+1);
+Mcon = zeros(nU,H);
+Scon = zeros(nU,nU,H);
 M(:,1) = m; S(:,:,1) = s;
 for t = 1:H
-    [m, s] = plant.prop(m, s, plant, dynmodel, policy, t);
+    [m, s, ~, ~, ~, ~, ~, ~, mcon, scon] = plant.prop(m, s, plant, dynmodel, policy, t);
+    
+    if nargout > 2
+        Mcon(:,t) = mcon;
+        Scon(:,:,t) = scon;
+    end
+        
     M(:,t+1) = m(end-D+1:end);
     S(:,:,t+1) = s(end-D+1:end,end-D+1:end);
 end
+
+% function [M, S] = my_pred(policy, plant, dynmodel, m, s, H)
+% %% Code
+% D = length(m);
+% S = zeros(D,D,H+1); M = zeros(D,H+1);
+% M(:,1) = m; S(:,:,1) = s;
+% for t = 1:H
+%     [m, s,] = plant.prop(m, s, plant, dynmodel, policy, t);
+%     M(:,t+1) = m(end-D+1:end);
+%     S(:,:,t+1) = s(end-D+1:end,end-D+1:end);
+% end

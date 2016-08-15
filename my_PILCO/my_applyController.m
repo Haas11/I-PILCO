@@ -21,40 +21,70 @@ else
 end
 
 if KUKA
-    [xx, yy, realCost{j+J}, latent{j+J}] = ...
+    [xx, yy, realCost{j+J}, latent{j+J}, rr] = ...
         my_iiwaRollout(policy, plant, cost, HH, Hdes);  % Experiment
+    
 else
     [xx, yy, realCost{j+J}, latent{j+J}, rr] = ...
         my_rollout(mu0, policy, HH, plant, robot);      % Simulation
-    robs = [mu0(1,dyno); rr(:,ref_select)];  rrr = rr(:,ref_select);
-    rrr(:,difi) = rr(:,ref_select(difi)) - robs(1:size(rr,1),difi);
-    r = [r; rrr];      %#ok<*AGROW> % augment training sets for dynamics model
 end
+rr = rr(:,ref_select);      % filter out the relevant reference dimensions
+rrr = rr(2:end,:);
+rrr(:,difi) = rr(2:end,difi) - rr(1:end-1,difi); % dimensions that are differences
+r = [r; rrr];      %#ok<*AGROW> % augment training sets for dynamics model
 x = [x; xx]; y = [y; yy];
 
 realAcumCost(j+J) = sum(realCost{j+J});                 % Accumulated cost
 realAcumCost2{j+J}(1) = sum(realCost{j+J});                 % Accumulated cost
 
-% determine if rollout aborted, failed or successful:
-
-if size(latent{j+J},1) > H-5
-    insertSuccess(j+J) = 1;                         %#ok<*SAGROW> not aborted
+lengthDiff = H - size(realCost{j+J},1);
+if lengthDiff == 0
+    insertSuccess{j+1}(1) = 1;                         %#ok<*SAGROW> not aborted
     if abs(mean(latent{j+J}(end-5:end,dyno(1)) - (xhole(1)+0.05))) < 0.01;
-        insertSuccess(j+J) = 2;                     % successful insertion
+        insertSuccess{j+1}(1) = 2;                     % successful insertion
     end
+else
+    insertSuccess{j+1}(1) = 0;
 end
 
+tempCost = [realCost{J+j}; ones(lengthDiff,1)];
 
 % 2. Make many rollouts to test the controller quality / robustness?
-testLat = cell(1,Ntest);
-testCost = cell(1,Ntest);
+testLati = cell(1,Ntest);
+testCosti = cell(1,Ntest);
 for i=1:Ntest
     if KUKA
-        [~,~,testCost{i},testLat{i}] = ...
+        [xx, yy, testCosti{i}, testLati{i}, rr] = ...
             my_iiwaRollout(policy, plant, cost, HH, Hdes);  % Experiment
+        
     else
-        [~,~,testCost{i},testLat{i}] = my_rollout(mu0, policy, HH, plant, robot);
+        [xx, yy, realCost{i}, latent{i}, rr] = ...
+            my_rollout(mu0, policy, HH, plant, robot);      % Simulation
     end
+    lengthDiff = H-size(testCosti{i},1);
+    if lengthDiff==0                           % rollout was completed
+        insertSuccess{j+1}(i+1) = 1;
+        if abs(mean(testLati{i}(end-5:end,dyno(1)) - (xhole(1)+0.05))) < 0.01;
+            insertSuccess{j+1}(i+1) = 2;                     % successful insertion
+        end
+        
+        tempCost = [tempCost, [testCosti{i}; ones(lengthDiff,1)]];          % concatenate with ones if rollout aborted
+    end
+end
+testLat{j} = testLati;
+testCost{j} = testCosti;
+
+% Real World:
+trialAcumCost{j+1} = sum(tempCost,1);
+realWorld.mean(j+1) = mean(trialAcumCost{j+1},2);
+realWorld.std(j+1) = std(trialAcumCost{j+1},0,2);   % flag: 0 = n-1, 1=n
+
+if isempty(find(insertSuccess{j+1}==2,2))   % None Success
+    scoreCard(j+1) = 0;
+elseif length(find(insertSuccess{j+1}==2,2))==Ntest+1
+    scoreCard(j+1) = 2;                 % All Success
+else
+    scoreCard(j+1) = 1;                 % Partial Success
 end
 
 %% verbosity
@@ -67,7 +97,7 @@ if plotting.verbosity > 0
     hold on;
     stairs(1:length(realCost{J+j}),realCost{J+j},'r'); hold on;
     for ii=1:Ntest
-        stairs(1:length(testCost{ii}),testCost{ii},'g');
+        stairs(1:length(testCost{j}{ii}),testCost{j}{ii},'g');
         hold on;
     end
     title('Predicted (uncertain) & Rollout (deterministic) Immediate Cost');
@@ -90,31 +120,7 @@ if plotting.verbosity > 0
         xlabel('Timestep');     ylabel(actionTitles{i});
     end
     
-    if ~ishandle(10)         % cost iterations
-        figure(10);
-    else
-        set(0,'CurrentFigure',10);
-    end
-    clf(10);
-    hold on; grid on;
-    %     genLegend({'rx','bo','g+'},{'failure','partial','full success'},10,12,12,1)
-    failMedSuc{1} = find(insertSuccess(1:j+J)==0);
-    failMedSuc{2} = find(insertSuccess(1:j+J)==1);
-    failMedSuc{3} = find(insertSuccess(1:j+J)==2);
-    color = {'rx','b+','go'};
-    for k=1:3
-        for i=1:length(failMedSuc{k})
-            plot(failMedSuc{k},realAcumCost(failMedSuc{k}),color{k},'MarkerSize',10,'LineWidth',1.5);
-            hold on
-        end
-        hb(k) = plot(0,0,color{k}, 'visible', 'off','MarkerSize',10,'LineWidth',1.5);   % dummy plot for legend
-    end
-    plot(realAcumCost(1:j+J),'r--','LineWidth',0.1);
-    for i=1:j, errorbar(i+J,sum(fantasy.mean{i}), 2*sum(fantasy.std{i}), 'k*');    end
-    hb(4) = plot(0,0,'k*','visible','off','MarkerSize',10,'LineWidth', 1.5);
-    legend(hb,'Aborted','Failed','Successful','Predicted');
-    title('Accumulated Rollout Cost');   xlabel('Learning iteration');   ylabel('Total Cost');
-    ax = gca; ax.XTick = 1:1:J+j;
+    run plotCost.m
     
     if plotting.verbosity > 1
         if ~ishandle(4)
@@ -126,7 +132,7 @@ if plotting.verbosity > 0
         ldyno = length(dyno);
         for i=1:ldyno       % plot the rollouts on top of predicted error bars
             subplot(ceil(ldyno/sqrt(ldyno)),ceil(sqrt(ldyno)),i); hold on;
-                        
+            
             % Full model:
             if compareToFullModel && ~isempty(Mfull{j})
                 errorbar(0:length(Mfull{j}(i,:))-1, Mfull{j}(i,:), ...
@@ -139,7 +145,7 @@ if plotting.verbosity > 0
             
             % Test trial:
             for ii=1:Ntest
-                stairs( 0:size(testLat{ii}(:,dyno(i)),1)-1, testLat{ii}(:,indices(dyno(i))), 'g' );        % recorded latent states in multiple robustness test-rollouts
+                stairs( 0:size(testLat{j}{ii}(:,dyno(i)),1)-1, testLat{j}{ii}(:,indices(dyno(i))), 'g' );        % recorded latent states in multiple robustness test-rollouts
             end
             
             % Model Trial:

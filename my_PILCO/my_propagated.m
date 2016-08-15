@@ -39,7 +39,7 @@
 % # Compute distribution of the next state
 %
 
-function [Mnext, Snext, dMdm, dSdm, dMds, dSds, dMdp, dSdp] = ...
+function [Mnext, Snext, dMdm, dSdm, dMds, dSds, dMdp, dSdp, Mcon, Scon] = ...
     my_propagated(m, s, plant, dynmodel, policy, varargin)
 %% Code
 global diffChecks diffTol gpCheck REF_PRIOR FIRST
@@ -66,8 +66,9 @@ end
 %         prevRefPos = m(1:length(policy.refIdx));
 % end
 
-if nargout <= 2                                  % just predict, no derivatives
-    [Mnext, Snext] = my_propagate(m, s, plant, dynmodel, policy, t);
+if nargout == 10                                  % just predict, no derivatives
+    [Mnext, Snext, Mcon, Scon] = my_propagate(m, s, plant, dynmodel, policy, t);
+    dMdm=[]; dSdm=[]; dMds=[]; dSds=[]; dMdp=[]; dSdp=[];
     return
 end
 

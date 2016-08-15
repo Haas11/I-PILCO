@@ -34,31 +34,28 @@ printTuningParams
 fprintf('\nPerforming initial rollouts...\n');
 for jj = 1:J
     
-    [xx, yy, realCost{jj}, latent{jj}] = ...
-        my_iiwaRollout(policy, plant, cost, H, Hdes, a_init);   
-    
-    realAcumCost(jj) = sum(realCost{jj});   
-    x = [x; xx]; y = [y; yy]; 
-%     robs = [mu0(1,dyno); rr(:,ref_select)];  rrr = rr(:,ref_select);
-%     rrr(:,difi) = rr(:,ref_select(difi)) - robs(1:length(rr),difi);
-%     r = [r; rrr];      %#ok<*AGROW> % augment training sets for dynamics model
+    [xx, yy, realCost{jj}, latent{jj}, rr] = ...
+        my_iiwaRollout(policy, plant, cost, H, Hdes, a_init);
+    realAcumCost(jj) = sum(realCost{jj});
+    rr = rr(:,ref_select);      % filter out the relevant reference dimensions
+    rrr = rr(2:H+1,:);
+    rrr(:,difi) = rr(2:H+1,difi) - rr(1:H,difi); % dimensions that are differences
+    x = [x; xx]; y = [y; yy];   r = [r rrr];
     
     % determine if rollout successful:
-        if size(xx,1) == H
-            insertSuccess(jj) = 1;  %#ok<*SAGROW> not aborted
-            if mean(abs(latent{1}(end-5:end,dyno(1))-(xhole(1)+0.05))) < 0.01;
-                insertSuccess(jj) = 2;                % succesful insertion
-            end
+    if size(xx,1) > H-5
+        insertSuccess{1}(jj) = 1;  %#ok<*SAGROW> not aborted
+        if mean(abs(latent{1}(end-5:end,dyno(1))-(xhole(1)+0.05))) < 0.01;
+            insertSuccess{1}(jj) = 2;                % succesful insertion
         end
-   
-%     if insertSuccess(jj) ~= 0;
-%         REF_DIFF = rrr;
-%         dynmodel.ref = rrr;
-%     elseif REF_PRIOR
-%         error('Initial rollout aborted. Complete reference unavailable.');
-%     else
-%         warning('Initial rollout aborted. Complete reference unavailable.');
-%     end        
+    end
+    
+    if insertSuccess{1}(jj) ~= 0;
+        REF_DIFF = rrr;
+        dynmodel.ref = rrr;
+    else
+        error('Initial rollout aborted. Complete reference unavailable.');
+    end
     
     if plotting.verbosity > 0
         if ~ishandle(6)         % action iterations
@@ -76,30 +73,7 @@ for jj = 1:J
             xlabel('Timestep');     ylabel(actionTitles{i});
         end
         drawnow;
-        
-        if ~ishandle(10)         % cost iterations
-            figure(10);
-        else
-            set(0,'CurrentFigure',10);
-        end
-        clf(10);
-        hold on; grid on;
-        failMedSuc{1} = find(insertSuccess(1:jj)==0);
-        failMedSuc{2} = find(insertSuccess(1:jj)==1);
-        failMedSuc{3} = find(insertSuccess(1:jj)==2);
-        color = {'rx','bo','g+'};
-        for k=1:3
-            for i=1:length(failMedSuc{k})
-                plot(failMedSuc{k},realAcumCost(failMedSuc{k}),color{k},'MarkerSize',10,'LineWidth',1.5);
-                hold on
-            end
-            hb(k) = plot(0,0,color{k}, 'visible', 'off','MarkerSize',10,'LineWidth',1.5);   % dummy plot for legend
-        end
-        hb(4) = plot(0,0,'k*','visible','off','MarkerSize',10,'LineWidth', 1.5);
-        legend(hb,'Aborted','Failed','Successful','Predicted');
-        title('Accumulated Rollout Cost');   xlabel('Learning iteration');   ylabel('Total Cost');
-        ax = gca; ax.XTick = 1:1:jj;
-        
+                       
         if plotting.verbosity > 2
             q_sim = latent{jj}(:,1:robot.n);
             if ~ishandle(5)         % robot animation
@@ -125,6 +99,22 @@ for jj = 1:J
     end
 end
 
+tempCost = [];
+for i=1:J
+    tempCost = [tempCost, realCost{i}];
+end
+trialAcumCost{1} = sum(tempCost,1);
+realWorld.mean(1) = mean(trialAcumCost{1},2);
+realWorld.std(1) = std(trialAcumCost{1},0,2);   % flag: 0 = n-1, 1=n
+
+if isempty(find(insertSuccess{1}==2,2))   % None Success
+    scoreCard(1) = 0;
+elseif length(find(insertSuccess{1}==2,2))==J
+    scoreCard(1) = 2;                 % All Success
+else
+    scoreCard(1) = 1;                 % Partial Success
+end
+
 %% 3. Controlled learning (N iterations)
 fprintf('\nPILCO Learning started\n--------------------------------\n');
 jj=J;
@@ -135,12 +125,4 @@ for j = 1:N
     
     disp(['\nControlled trial # ' num2str(j)]);
     disp('Insertion successes: '); disp(insertSuccess);
-end
-%%
-figure;
-for i=1:N+J
-    plot(latent{i}(:,end-2:end));
-    title(num2str(i));
-    legend('x','y','r');
-    pause;
 end
