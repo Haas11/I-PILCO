@@ -29,8 +29,10 @@ if diffChecks && valueCheck
 end
 gpCheck = 0;
 
-fprintf('\nPolicy hypers:');
-disp(exp(policy.p.hyp));
+if isfield(policy.p,'hyp')
+    fprintf('\nPolicy hypers:');
+    disp(exp(policy.p.hyp));
+end
 
 % 1. Update the policy
 if K==1
@@ -40,9 +42,7 @@ if K==1
     
     % 2. Predict state trajectory from p(x0) and compute cost trajectory
     [M{j}, Sigma{j}, Mcon{j}, Scon{j}] = my_pred(policy, plant, dynmodel, mu0Sim', S0Sim, H);
-    [fantasy.mean{j}, fantasy.std{j}] =  my_calcCost(cost, M{j}, Sigma{j}, policy, plant);
-    
-    
+    [fantasy.mean{j}, fantasy.std{j}] =  my_calcCost(cost, M{j}, Sigma{j}, policy, plant);        
 else
     % randomize multiple start states
     mu0MultiSim = mu0Sim';

@@ -9,10 +9,10 @@ for kk=1:length(M)
     clf;
     for i=1:ldyno       % plot the rollouts on top of predicted error bars
         %         subplot(ceil(ldyno/sqrt(ldyno)),ceil(sqrt(ldyno)),i); hold on;
-        subplot(3,3,i); hold on;
+        subplot(3,4,i); hold on;
         
         % Reference:
-        plot(rr(:,i),'k:');
+%         plot(rr(:,i),'k:');
         
         % Sparse Model:
         errorbar( 0:length(M{kk}(i,:))-1, M{kk}(i,:), ...

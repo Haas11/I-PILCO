@@ -29,7 +29,7 @@ r = [r; rrr];   x = [x; xx];    y = [y; yy]; %#ok<*AGROW>
 % determine if rollout aborted, failed or successful:
 lengthDiff = H - size(realCost{j+J},1);
 if lengthDiff == 0
-    insertSuccess{j+1}(1) = 1;                         %#ok<*SAGROW> not aborted        
+    insertSuccess{j+1}(1) = 1;                         %#ok<*SAGROW> not aborted
     if abs(mean(latent{j+J}(end-5:end,dyno(1)) - (xhole(1)+0.05))) < 0.01;
         insertSuccess{j+1}(1) = 2;                     % successful insertion
     end
@@ -63,18 +63,17 @@ trialAcumCost{j+1} = sum(tempCost,1);
 realWorld.mean(j+1) = mean(trialAcumCost{j+1},2);
 realWorld.std(j+1) = std(trialAcumCost{j+1},0,2);   % flag: 0 = n-1, 1=n
 
-if isempty(find(insertSuccess{j+1}==2,1))   % None Success
+if isempty(find(insertSuccess{j+1}==2,2))   % None Success
     scoreCard(j+1) = 0;
-elseif length(find(insertSuccess{j+1}==2,1))==Ntest+1
+elseif length(find(insertSuccess{j+1}==2,2))==Ntest+1
     scoreCard(j+1) = 2;                 % All Success
 else
     scoreCard(j+1) = 1;                 % Partial Success
 end
-
 %% verbosity
 if plotting.verbosity > 0
     % Cost During Last Trials
-    if ~ishandle(3)         
+    if ~ishandle(3)
         figure(3);
     else
         set(0,'CurrentFigure',3);
@@ -92,7 +91,7 @@ if plotting.verbosity > 0
     drawnow;
     
     % Actions over all iterations:
-    if ~ishandle(6)         
+    if ~ishandle(6)
         figure(6);
     else
         set(0,'CurrentFigure',6);
@@ -186,7 +185,7 @@ if plotting.verbosity > 0
         if plotting.verbosity > 2
             % robot animation
             q_sim = latent{j+J}(:,1:robot.n);
-            if ~ishandle(5)         
+            if ~ishandle(5)
                 figure(5);
             else
                 set(0,'CurrentFigure',5);

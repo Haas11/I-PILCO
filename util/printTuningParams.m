@@ -5,7 +5,7 @@ fprintf('\n\n')
 fprintf('GP Model parameters:\n')
 fprintf('=====================================================\n');
 fprintf('Outputs: \t\t\t')
-disp(stateNames(indices(dyno)))
+disp(stateNames(dyno))
 fprintf('Inputs: \t\t\t')
 disp(stateNames(indices(dyno(dyni))))
 fprintf('Outputs that are differences:')
@@ -22,7 +22,7 @@ fprintf('Energy penalty: \t%4.5f \n', cost.ep)
 fprintf('Exploration param: \t%4.5f \n\n', cost.expl)
 if isfield(cost,'sub')
     for i=1:length(cost.sub)
-        fprintf('Inputs %i: \t',i); disp(stateNames(indices(dyno(cost.sub{i}.losi))))
+        fprintf('Inputs %i: \t',i); disp(stateNames(dyno(cost.sub{i}.losi)))
         fprintf('Cost width %i: \t\t%4.5f \n\n', i, cost.sub{i}.width)
     end
 else

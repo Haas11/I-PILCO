@@ -17,17 +17,15 @@
 % expll = [-0.1 -0.2 -0.4 -0.6 -0.8];
 
 %% 1. Initialization
-clear all;
-clc;
-global initTrial vert fac
+clear; clc;
 figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
     clf(figHandles(i));
 end
-settings_ST;                  % load scenario-specific settings
+settings_S_simple;                  % load scenario-specific settings
 ep=num2str(cost.ep);
 expl=num2str(cost.expl);
-basename = strcat('traj_',date,'_','conGP-','_ep-0p',ep(strfind(ep,'.')+1:end),...
+basename = strcat('simple_',date,'_','conLin-','_ep-0p',ep(strfind(ep,'.')+1:end),...
     '_expl-0p',expl(strfind(expl,'.')+1:end),'-');      % filename used for saving data
 
 % numerically test my_gSat for proper means, variances and gradients
@@ -41,9 +39,9 @@ initTrial = 1;    %#ok<*NASGU>     Random walk (OU process)
 for jj = 1:J
     [xx, yy, realCost{jj}, latent{jj}, rr] = ...
         my_rollout(initialMu0(jj,:), policy, H, plant, robot);
-    realAcumCost(jj) = sum(realCost{jj});
-    rr = rr(:,ref_select);      % filter out the relevant reference dimensions
-    rrr = rr(2:H+1,:);
+    realAcumCost(jj) = sum(realCost{jj});       
+    rr = rr(:,ref_select);      % filter out the relevant reference dimensions    
+    rrr = rr(2:H+1,:); 
     rrr(:,difi) = rr(2:H+1,difi) - rr(1:H,difi);    % dimensions that are differences
     r = [r; rrr];   x = [x; xx];    y = [y; yy]; %#ok<*AGROW>
     
@@ -77,8 +75,8 @@ for jj = 1:J
             legend(iterVec{1:jj});
             xlabel('Timestep');     ylabel(actionTitles{i});
         end
-        drawnow;
-               
+        drawnow;              
+        
         if plotting.verbosity > 2
             q_sim = latent{jj}(:,1:robot.n);
             if ~ishandle(5)         % robot animation
@@ -114,11 +112,10 @@ realWorld.std(1) = std(trialAcumCost{1},0,2);   % flag: 0 = n-1, 1=n
 
 if isempty(find(insertSuccess{1}==2,1))   % None Success
     scoreCard(1) = 0;
-    if length(find(insertSuccess{1}==2,1))==J
-        scoreCard(1) = 2;                 % All Success
-    else
-        scoreCard(1) = 1;                 % Partial Success
-    end
+elseif length(find(insertSuccess{1}==2,1))==J
+    scoreCard(1) = 2;                 % All Success
+else
+    scoreCard(1) = 1;                 % Partial Success
 end
 
 jj=J; initTrial = 0;

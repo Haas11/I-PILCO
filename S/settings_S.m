@@ -1,8 +1,6 @@
 %% settings_Link3_learnImp.m
 % *Summary:* Script to set up impedance parameter learning for a 3-link
 % robot.
-%
-%
 
 %% Indices & State definitions:
 % command window:   Printed function values                     [opt  >= ?]
@@ -55,8 +53,8 @@
 % 23  Fg             Cartesian gamma torque in world frame
 % 24  Fp             Cartesian phi   torque in world frame
 
-% 25  Kp_x           Cartesian stiffness in x
-% 26  Kp_y           Cartesian stiffness in y
+% 25  t           Cartesian stiffness in x
+% 26-27  Kp_xy           Cartesian stiffness in y
 %
 %% High-Level Steps
 % # Define state and important indices
@@ -83,7 +81,7 @@ conCheck   = 0;  gpCheck   = 0;     propCheck   = 0;    % GP check = very heavy!
 valueCheck = 1;  satCheck  = 0;     lossCheck   = 0;
 stateNames = {'theta1','theta1','theta1','dtheta1','dtheta1','dtheta1',...
     'xe_x','xe_y','xe_z','alpha','gamma','phi','dxe_x','dxe_y','dxe_z',...
-    'dalpha','dgamma','dphi','Fx','Fy','Fz','Tx','Ty','Tz','t','\sigma_f','\sigma_w'};
+    'dalpha','dgamma','dphi','F_x','F_y','Fz','Tx','Ty','Tz','t','\sigma_f','\sigma_w'};
 
 if diffChecks
     fprintf('==================================\n'); %#ok<UNRCH>
@@ -103,23 +101,22 @@ n=3;
 odei = 1:1:2*n+6;
 augi    = [];                                           % augi  indicies for variables augmented to the ode variables
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
-dyno    = [7 8 13 14 19 25];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
-dyni    = [1 2 3 4];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
+dyno    = [7 8 13 14 19 20 25];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
+dyni    = [1 2 3 4 7];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
 difi    = [1 2 3 4];                              % difi  indicies for training targets that are differences                      (subset of dyno)
 poli    = [1 2 3 4 5];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
 refi    = [1 2 3 4];                                 % indices for which to encode a reference as  prior mean
 REF_PRIOR  = 1;
 
-ref_select = dyno - 2*n;                    % indices of reference corresponding to dyno    [xe dxe F] (leave as is)
+ref_select = dyno(1:end-1) - 2*n;                    % indices of reference corresponding to dyno    [xe dxe F] (leave as is)
 
 dynoTitles = stateNames(indices(dyno));
 actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]'};%, 'Kp_{rot} [Nm/rad]'};
 hyperTitles = [dynoTitles, actionTitles, {'\sigma_f','\sigma_w'}];
 
 %% 2. Set up the scenario
-dynPert = 0.20;          % [%] Perturbation of dynamics during simulation 
-dt_sim = 0.01;
-dt = dt_sim;             % [s] controller sampling time
+dynPert = 0.10;          % [%] Perturbation of dynamics during simulation 
+dt = 0.005;             % [s] controller sampling time
 dt_pilco = 0.1;          % [s] PILCO sampling rate 
 fprintf('\nInitializing robot model');
 run init_3Lbot.m
@@ -127,13 +124,15 @@ run init_3Lbot.m
 T = 5.0;                % [s] Rollout time
 t_pilco = (0:dt_pilco:T)';
 peg = 1;                 % [bool]  peg insertion trajectory
-xhole = [0.5, 0.3, 0];   % center hole location [x, y, phi/z]
+xhole = [0.5, 0.2, 0];   % center hole location [x, y, phi/z]
+xholetraj = [0.5, 0.2, 0];   % center hole location [x, y, phi/z]
 xc    = [0.45, 10, 10, 10, 10, 10]';  % [m] environment constraint location
-x0    = [0.4 0 0];
-T0    = transl(x0);      % start pose end-effector
-T1   = transl([0.5 0 0]);
+x0    = [0.35 0 0];
+H0    = transl(x0);      % start pose end-effector
+H1   = transl([0.5 0 0]);
 [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td]...
-    = genTrajectory(robot, peg, T0, T1, xhole, xc, T, dt);
+    = genTrajectory(robot, peg, H0, H1, 0, 0, xholetraj, xc, T, dt);
+
 t = 0:dt:T;
 Hd = timeseries(Td(:,:,1:length(t)),t);
 T_e_init = cardatol(tr2rpy(Hd.data(:,:,1)),1,2,3);      %xyz
@@ -159,15 +158,17 @@ if plotting.verbosity > 1
     grid on
 end
 
-initPredVar = 0.01.^2;
-mu0Sim = mu0(indices(dyno));
-S0Sim = diag(ones(1,length(dyno)).*initPredVar);
+initialMu0 = [mu0];
+initPredVar = 0.001^2;                               % initial state variance around mean
+startStateInterval = [0 0 0 0 0 0]';             % interval for which start states may vary [x y z]
+mu0Sim = mu0(dyno);                                 % initial mean for simulation
+S0Sim = diag(ones(1,length(dyno))*initPredVar);     % covariance matrix of initial state distribution during simulation 
 
 fprintf('\nFinal transformation: \nH^0_n(T) = \n\n');
 disp(Hf);
 
 % Environment:
-Kp_env = [3e3, 1e3, 3e3, 3e3, 3e3, 3e3];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
+Kp_env = [1e4, 1e4, 1e4, 0, 0, 0];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
 Kd_env = [1, 1, 0, 0, 0, 0];                %[Ns/m] damping
 fprintf('\nEnvironment stiffness \t= \t %6.2f [N/m]\n', Kp_env(1));
 fprintf('Environment damping \t= \t %6.2f [Ns/m]\n',  Kd_env(1));
@@ -191,7 +192,8 @@ for i=2:J+N
 end
 
 %% 3. Set up the plant structure
-outputNoiseSTD = ones(1,length(odei))*0.005.^2;                          % noise added to odei indicies in simulation
+outputNoiseSTD = ones(1,length(odei))*0.001.^2;        % noise added to odei indicies in simulation
+outputNoiseSTD(1,robot.n+1:2*robot.n) = 0.0001.^2;
 outputNoiseSTD(1,end-5:end) = 0.1^2;
 initRollOutNoise = 1e-3;
 
@@ -210,30 +212,25 @@ plant.prop = @my_propagated;   % handle to function that propagates state over t
 plant.simconstraint = @constraint_check;
 plant.rollout_model = 'IPILCO_relativeRPY_S';
 plant.indices = indices;
+plant.startStateInterval = startStateInterval;
 
 %% 4. Set up the policy structure
-policy.maxU  = [150 150]./2; policy.minU  = [10 10];
+policy.maxU  = [250 250]./2; policy.minU  = [10 10];
 policy.impIdx = [1 2]; policy.refIdx = [];
 Du = length(policy.maxU);
 
-multTargets(1,:) = [50 50];
-multTargets(2,:) = [80 80];
-multTargets(3,:) = [120 120];
-varTargets = [150 150];              % initial target variance
-
-targets = multTargets(2,:);                % targets for initializing hyperparameters
 seedMatrix = 1:1:J*Du;
 seedMatrix = reshape(seedMatrix,J,[]);
 
 % Linear Controller:
 % policy.fcn = @(policy,m,s)my_mixedConCat(@my_conlin,@my_mixedGSat,policy,m,s);  % linear saturating controller
 % policy.p.w = rand(Du,length(poli));
-% policy.p.b = ones(Du,1).*targets';
+% policy.p.b = rand(Du,1);
 % policy.rempap = true;
 
 % GP Controller:
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
-nc = 5;
+nc = 25;
 policy.p.targets = 0.1*randn(nc, length(policy.maxU));    % init. policy targets 
 policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
 policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]
@@ -251,32 +248,22 @@ policy.p.hyp = ...                                                              
 % Compounded loss function:
 cost.fcn   = @my_lossAdd;                     % cost function
 cost.gamma = 1;                               % discount factor  =1 for finite horizon
-cost.expl  = -0.4;                           % exploration parameter (UCB) smoothes the value function out and simplifies the optimization problem.
-cost.ep    = 0.001;                           % energy penalty
+cost.expl  = -0.3;                           % exploration parameter (UCB) smoothes the value function out and simplifies the optimization problem.
+cost.ep    = 0.01;                           % energy penalty
+cost.epType = 2;
 
 cost.sub{1}.fcn     = @lossSat_2dPIH;
 cost.sub{1}.losi    = [1 2];                            % indicies for saturating cost states
 cost.sub{1}.target  = ([xhole(1:2)] + [0.05 0])';           % target state
-cost.sub{1}.width   = 0.075;
+cost.sub{1}.width   = 0.05;
+cost.sub{1}.weight  = [1 1];
 cost.sub{1}.angle   = plant.angi;
 
 cost.sub{2}.fcn     = @lossSat_2dPIH;
-cost.sub{2}.losi    = [1 2];                            % indicies for saturating cost states
-cost.sub{2}.target  = ([xhole(1:2)] + [0.05 0])';           % target state
-cost.sub{2}.width   = 0.02;
-cost.sub{2}.angle   = plant.angi;
-
-% cost.sub{2}.fcn     = @lossSat_2dPIH;
-% cost.sub{2}.losi    = [1 2];                            % indicies for saturating cost states
-% cost.sub{2}.target  = ([xhole(1:2)] + [0.05 0])';           % target state
-% cost.sub{2}.width   = 0.01;
-% cost.sub{2}.angle   = plant.angi;
-
-cost.sub{3}.fcn     = @lossSat_2dPIH;
-cost.sub{3}.losi 	= 5;                            % indicies for force
-cost.sub{3}.target  = 0;                            % target state
-cost.sub{3}.width   = 10;                           % Weight matrix
-cost.sub{3}.angle   = plant.angi;                   % index of angle (for cost function)
+cost.sub{2}.losi 	= [5 6];                            % indicies for force
+cost.sub{2}.target  = [0 0];                            % target state
+cost.sub{2}.width   = 20;                           % Weight matrix
+cost.sub{2}.angle   = plant.angi;                   % index of angle (for cost function)
 
 %% 6. Set up the GP dynamics model structure
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions
@@ -292,7 +279,7 @@ trainOpt        = [300 300];                % max. number of line searches [full
 %% 7. Parameters for policy optimization
 opt.fh = 1;
 opt.method = 'BFGS';                    % 'BFGS' (default), 'LBFGS' (x>1000), 'CG'
-opt.length = 25;                        % (+): max. number of line searches
+opt.length = 50;                        % (+): max. number of line searches
 opt.MFEPLS = 25;                        % max. number of function evaluations per linesearch
 % opt.MSR = 100;                        % max. slope ratio (default=100)
 
@@ -306,9 +293,3 @@ M = cell(N,1);  Sigma = cell(N,1); Mcon = cell(N,1); Scon = cell(N,1);
 Mfull = cell(N,1); Sfull = cell(N,1);
 insertSuccess = cell(1,N+1);    scoreCard = zeros(1,N+1);
 reference = zeros(H+1,length(dyno));
-
-%%
-% fantasy.mean{N} = []; fantasy.std{N} = [];
-% realCost{N}=[];  latent{N}=[];  realAcumCost(N) = 0;
-% M{N} = [];  Sigma{N} = [];
-% insertSuccess(N) = 0;

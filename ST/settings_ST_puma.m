@@ -211,7 +211,7 @@ if plotting.verbosity > 1
 end
 
 % Environment:
-Kp_env = [4e3, 4e3, 0, 0, 0, 0];              %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
+Kp_env = [5e3, 5e3, 5e3, 0, 0, 0];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
 Kd_env = [1, 1, 0, 0, 0, 0];              %[Ns/m] damping
 
 % Display Scenario in Console:

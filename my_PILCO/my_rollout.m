@@ -98,11 +98,11 @@ while ~goodSim
     else
         q0est = [pi/2 -pi/2 0];
     end
-    if robot.n==6 
+    if robot.isspherical
         q0 = robot.ikine6s(Hd0);
     else
-    q0 = robot.ikcon(Hd0,q0est);     % w/ joint limits
-    % q0 = robot.ikine(Hd0,q0est);     % without joint limits
+        q0 = robot.ikcon(Hd0,q0est);        % w/ joint limits
+        % q0 = robot.ikine(Hd0,q0est);      % without joint limits
     end
     Hd0 = robot.fkine(q0);
     x0trial = transl(Hd0);

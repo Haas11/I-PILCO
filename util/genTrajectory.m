@@ -17,9 +17,8 @@ t_final     = (t3:dt:T)';
 q0_est  = ones(1,robot.n)*-0.5;
 dq0 = zeros(1,robot.n);    % initial config
 
-xhole2 = xhole + [0.05 0 0];
+xhole2 = xhole + [0.075 0 0];
 Thole1 = transl(xhole); Thole2 = transl(xhole2);
-[R0,~] = tr2rt(H0);
 
 if ~peg
     fprintf('Generating compliance test trajectory...\n');
@@ -28,6 +27,7 @@ if ~peg
     else
         q0 = robot.ikine(H0,q0_est);
     end
+    H0 = robot.fkine(q0);
     robot.plot(q0); 
     patch('Vertices',vert,'Faces',fac,'FaceVertexCData',hsv(6),'FaceColor','flat');
         
@@ -67,7 +67,8 @@ elseif peg
     elseif robot.n > 3
         [q0,~] = robot.ikcon(H0);
     end
-    
+    H0 = robot.fkine(q0);
+
     %T1 = transl(xhole(1), 0, 0);                          % next config in task space
     
     % @lspb  = Trapizoidal function
@@ -79,7 +80,7 @@ elseif peg
 %     Tcart4 = ctraj(Thole2, Thole2, length(t_rest));
     
 %     Thole1 = T1; Thole2=T1;
-    [xe1, ~, ~] = mtraj(@tpoly, transl(T0)', transl(T1)', t_approach);
+    [xe1, ~, ~] = mtraj(@tpoly, transl(H0)', transl(H1)', t_approach);
     [xe2, ~, ~] = mtraj(@tpoly, transl(H1)', transl(Thole1)', t_contact1);
     [xe3, ~, ~] = mtraj(@tpoly, transl(Thole1)', transl(Thole2)', t_insert);
     [xe4, ~, ~] = mtraj(@tpoly, transl(Thole2)', transl(Thole2)', t_rest);
