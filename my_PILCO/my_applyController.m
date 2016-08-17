@@ -133,6 +133,9 @@ if plotting.verbosity > 0
         for i=1:ldyno       % plot the rollouts on top of predicted error bars
             subplot(ceil(ldyno/sqrt(ldyno)),ceil(sqrt(ldyno)),i); hold on;
             
+            % Reference:
+            plot(rr(:,i),'k:');
+            
             % Full model:
             if compareToFullModel && ~isempty(Mfull{j})
                 errorbar(0:length(Mfull{j}(i,:))-1, Mfull{j}(i,:), ...
@@ -160,15 +163,15 @@ if plotting.verbosity > 0
             if i==1
                 if compareToFullModel && numel(dynmodel.induce) ~= 0
                     if Ntest > 0
-                        legend('Full Model','Sparse Model','Test','Trial','Inducing Inputs','Location','Best');
+                        legend('Reference','Full Model','Sparse Model','Test','Trial','Inducing Inputs','Location','Best');
                     else
-                        legend('Full Model','Sparse Model','Trial','Inducing Inputs','Location','Best');
+                        legend('Reference','Full Model','Sparse Model','Trial','Inducing Inputs','Location','Best');
                     end
                 else
                     if Ntest > 0
-                        legend('Full Model','Test','Trial','Location','Best');
+                        legend('Reference','Full Model','Test','Trial','Location','Best');
                     else
-                        legend('Full Model','Trial','Location','Best');
+                        legend('Reference','Full Model','Trial','Location','Best');
                     end
                 end
             end

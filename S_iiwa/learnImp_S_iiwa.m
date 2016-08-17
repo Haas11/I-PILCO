@@ -1,8 +1,7 @@
 
 %% link3_learnImp.m
-% *Summary:* Main file for learning planar Peg-in-Hole insertion task.
-% Probabilistic model-based RL,
-%
+% *Summary:* Main file for learning variable impedance contact tasks.
+% Probabilistic model-based RL based on PILCO.
 %
 %
 %% High-Level Steps
@@ -13,11 +12,9 @@
 % application)
 
 %% Code
-% epp = [0.0001 0.001 0.01 0.1 1];
-% expll = [-0.1 -0.2 -0.4 -0.6 -0.8];
 
 %% 1. Initialization
-clear; clc;
+clear; clc; beep on;
 figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
     clf(figHandles(i));
@@ -35,12 +32,12 @@ fprintf('\nPerforming initial rollouts...\n');
 for jj = 1:J
     
     [xx, yy, realCost{jj}, latent{jj}, rr] = ...
-        my_iiwaRollout(policy, plant, cost, H, Hdes, a_init);
+        my_iiwaRollout(policy, plant, cost, H, Hdes, a_init{jj});
     realAcumCost(jj) = sum(realCost{jj});
     rr = rr(:,ref_select);      % filter out the relevant reference dimensions
     rrr = rr(2:H+1,:);
     rrr(:,difi) = rr(2:H+1,difi) - rr(1:H,difi); % dimensions that are differences
-    x = [x; xx]; y = [y; yy];   r = [r rrr];
+    x = [x; xx]; y = [y; yy];   r = [r; rrr]; %#ok<*AGROW>
     
     % determine if rollout successful:
     if size(xx,1) > H-5
@@ -51,9 +48,8 @@ for jj = 1:J
     end
     
     if insertSuccess{1}(jj) ~= 0;
-        REF_DIFF = rrr;
         dynmodel.ref = rrr;
-    else
+    elseif jj==J
         error('Initial rollout aborted. Complete reference unavailable.');
     end
     

@@ -95,10 +95,10 @@ elseif mode==1
     xe_des   = [t_total, xe_des(1:length(t_total),:)];
     dxe_des  = [t_total, dxe_des(1:length(t_total),:)];
     ddxe_des = [t_total, ddxe_des(1:length(t_total),:)];
-elseif mode==3
+elseif mode==2
     
-    t1 = T/6;
-    t2 = 3*T/6;
+    t1 = T/3;
+    t2 = 3*T/5;
     t3 = 5*T/6;
     t_total     = [0:dt:T]'; %#ok<*NBRAK>
     t_approach  = [0:dt:t1]';
@@ -106,8 +106,13 @@ elseif mode==3
     t_contact2  = (t2:dt:t3)';
     t_rest      = [t3:dt:T]';
     
-%     q0 = [0; 0.25; 0; -1.43; 0; 1.46; 0];   % [0.45 0 0.4]         
-    q0 = [0; 11.75; 0; -100; 0; 68; 0];     % [0.45 0 0.3]
+    q0 = [-0.0012;
+        0.2596;
+        0.0014;
+        -1.4267;
+        -0.0003;
+        1.4555;
+        0.0002];
     
     xe0 = [transl(H0)', tform2quat(H0)];
     dxe0 = zeros(1,7);
@@ -152,8 +157,13 @@ elseif mode==2
     t_contact   = [t1:dt:t2]';
     t_rest      = [t2:dt:T]';
     
-%     q0 = [0; 0.25; 0; -1.43; 0; 1.46; 0];   % [0.45 0 0.4]         
-    q0 = [0; 11.75; 0; -100; 0; 68; 0];     % [0.45 0 0.3]
+    q0 = [-0.0012;
+        0.2596;
+        0.0014;
+        -1.4267;
+        -0.0003;
+        1.4555;
+        0.0002];
     
     xe0 = [transl(H0)', tform2quat(H0)];
     dxe0 = zeros(1,7);

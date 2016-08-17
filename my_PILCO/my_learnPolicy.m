@@ -138,6 +138,24 @@ if plotting.verbosity > 0
     xlabel('time step'); ylabel('immediate cost');
     drawnow;
     
+    % Predicted Actions:
+    if ~ishandle(11)
+        figure(11);
+    else
+        set(0,'CurrentFigure',11)
+    end
+    clf(11);
+    for i=1:Du       % plot the rollouts on top of predicted error bars
+        subplot(2,1,i); hold on;
+        errorbar( 1:length(Mcon{j}(i,:)), Mcon{j}(i,:), ...
+            2*sqrt(squeeze(Scon{j}(i,i,:))),'r');
+        axis tight
+        grid on
+        xlabel('Time step');    ylabel('Stiffness');
+        title(actionTitles{i});
+    end
+    drawnow;
+        
     % Plot overall optimization progress
     if plotting.verbosity > 1
         if ~ishandle(2)

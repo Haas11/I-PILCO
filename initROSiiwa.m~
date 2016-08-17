@@ -5,9 +5,7 @@ function handles = initROSiiwa(bufferSize, dt, relVelocity, overrunAction, tool_
 % Relative velocity only works in joint position mode. Ignored for
 % Cartesian pose commands.
 %
-% When providing an additional input for control mode, stiffnesses are set
-% to midpoint values (2500 2500 2500 150 150 150) and a damping ratio of
-% 0.7 for all Cartesian Directions.
+% When providing an additional input for control mode, stiffnesses are 
 %
 % INPUTS:
 %       bufferSize  - buffer size for the ROS messages  [1,inf)
@@ -116,7 +114,7 @@ handles.config.Mode.CartesianDamping.Damping.A = 0.7;
 handles.config.Mode.CartesianDamping.Damping.B = 0.7;
 handles.config.Mode.CartesianDamping.Damping.C = 0.7;
 
-handles.config.Mode.NullspaceStiffness = 150;
+handles.config.Mode.NullspaceStiffness = 100;
 handles.config.Mode.NullspaceDamping = 0.7;
 
 if nargin > 5

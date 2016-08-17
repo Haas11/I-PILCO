@@ -4,7 +4,7 @@ fprintf('\n\n')
 
 fprintf('GP Model parameters:\n')
 fprintf('=====================================================\n');
-fprintf('Outputs: \t\t\t')
+fprintf('Outputs: \t\t')
 disp(stateNames(indices(dyno)))
 fprintf('Outputs that are differences:')
 disp(stateNames(indices(dyno(difi))))
@@ -32,15 +32,23 @@ fprintf('\n\nPolicy parameters:\n')
 fprintf('=====================================================\n');
 if isfield(policy.p,'w')
     fprintf('linear controller');
+    fprintf('\nInputs: \t\t\t')
+    disp(stateNames(indices(dyno(poli))))
 else
     fprintf('RBF controller\n');
     fprintf('No. of policy kernels: \t\t\t%i \n\n', nc)
+    fprintf('Inputs: \t\t\t')
+    disp(stateNames(indices(dyno(poli))))
 end
-fprintf('Learned parameters: \t\t');
+fprintf('\nLearned parameters: \t\t');
 disp(actionTitles)
-fprintf('Inputs: \t\t\t')
-disp(stateNames(indices(dyno(poli))))
+fprintf('Limits: \t\t\t\t')
+disp(policy.maxU)
+fprintf(' \t\t\t\t\t')
+disp(policy.minU)
 
-fprintf('No. of learning iterations: \t %i \n', N)
+fprintf('\n\nOptimization parameters:\n')
+fprintf('=====================================================\n');
+fprintf('No. of learning iterations: \t\t%i \n', N)
 fprintf('No. of linesearches: \t\t\t%i \n', opt.length)
 fprintf('Function evaluations per linesearch: \t%i \n', opt.MFEPLS)

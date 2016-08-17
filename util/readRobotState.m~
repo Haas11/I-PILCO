@@ -96,7 +96,7 @@ if desiredStates(3)
     
     if isempty(time)
         % compute relative time since start of rollout:
-        absTime = double(latestPose.Header.Stamp.Sec) + double(latestPose.Header.Stamp.Nsec)/1e9;
+        absTime = double(latestPose.Header.Stamp.Sec) + double(latestJointTorques.Header.Stamp.Nsec)/1e9;
         time = absTime-startTime;
     end
     

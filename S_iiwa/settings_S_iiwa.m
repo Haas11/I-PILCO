@@ -91,22 +91,22 @@ n=7;
 odei = 1:1:2*n+6;
 augi    = [];                                           % augi  indicies for variables augmented to the ode variables
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
-dyno    = [1 3 8 10 15 17];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
-dyni    = [1 2 3 4];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
-difi    = [1 2 3 4];                              % difi  indicies for training targets that are differences                      (subset of dyno)
+dyno    = [1 2 15 16];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
+dyni    = [1 2];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
+difi    = [1 2];                              % difi  indicies for training targets that are differences                      (subset of dyno)
 poli    = [1 2 3 4];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
 
 REF_PRIOR  = 1;
-refi    = [1 2];                                 % indices for which to encode a reference as  prior mean
+refi    = [1 2 3];                                 % indices for which to encode a reference as  prior mean
 ref_select = dyno;                          % indices of reference corresponding to dyno    [xe dxe F]
 
 dynoTitles = stateNames(indices(dyno));
-actionTitles = {'Kp_{x/y}','Kp_{z}'};
+actionTitles = {'Kp_{x}','Kp_{y}'};
 
 %% 2. Set up the scenario
 N = 30;                            % no. of controller optimizations
-Ntest = 1;                         % no. of roll outs to test controller quality
-J = 1;                             % no. of initial training rollouts
+Ntest = 2;                         % no. of roll outs to test controller quality
+J = 2;                             % no. of initial training rollouts
 K = 1;                             % no. of initial states for which we optimize
 
 % Timing:
@@ -119,16 +119,17 @@ H = ceil(T/dt_pilco);              % no. of timesteps per rollout
 
 % REMAINS FROM SIMULATION (DEFINED TO AVOID ERRORS)
 peg = 1;                    
-xc    = [0.45, 10, 10, 10, 10, 10]';  % [m] environment constraint location 
-xhole = [0.75, 0, 0.05];      % center hole location [x, y, phi/z]      (used for judging success with KUKA)
+xc    = [0, 0, 0.0925, 10, 10, 10]';  % [m] environment constraint location 
+xhole = [0.75, 0.125, 0.05];      % center hole location [x, y, phi/z]      (used for judging success with KUKA)
 robot = 7;
-mode = 2;                   % [bool]  0= free motion sim, 1=peg sim, 2=KUKA experiment.
-x0    = [0.5 0 0.4];
+
+mode = 3;                   % [bool]  0= free motion sim, 1=peg sim, 2=KUKA experiment with 3 way-points, 3= KUKA w/ 2 way-points
+x0    = [0.45 0 0.3];
 initRot = t2r(quat2tform([0 1 0 0]));
 H0 = rt2tr(initRot, x0');
-H1 = rt2tr(initRot, [0.5 0 0.05]');   
-H2 = rt2tr(initRot, [0.6 0 0.05]'); 
-H3 = rt2tr(initRot, [0.75 0 0.05]'); 
+H1 = rt2tr(initRot, [0.45 0 0.05]');         % 0.3 meters in 20 timesteps at 0.15 s = 3 seconds --> max speed = 0.1 m/s
+H2 = rt2tr(initRot, [0.75 0 0.05]'); 
+H3 = rt2tr(initRot, [0.75 0.125 0.05]'); 
 [mu0, S0, xe_des, dxe_des, ddxe_des, Hf, Rd, Hd]=...
     genTrajectory(robot, mode, H0, H1, H2, H3, xhole, xc, T,  dt);
 Hdes = Hd;
@@ -183,22 +184,17 @@ plant.indices = indices;
 % GP Controller:
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
 nc = 10;
-policy.maxU  = [2500 2500]./2; policy.minU  = [10 10];
+policy.maxU  = [250 250]./2; policy.minU  = [5 5];
 policy.impIdx = [1 2]; policy.refIdx = [];
 Du = length(policy.maxU);
 
-initMean = [1000 500];     initVar = [1000 1000];             
-
-targets = initMean;                % targets for initializing hyperparameters
-seedMatrix = 1:1:J*Du;
-seedMatrix = reshape(seedMatrix,J,[]);
-
-a_init = gaussian(initMean,diag(initVar),H)';
-
+policy.SNR = 100;
 policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
 policy.p.targets = 0.1*randn(nc, length(policy.maxU));                                         % init. policy targets 
 policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]
-    repmat(log([ones(1,length(poli))*1, 1, 0.01]'), 1, length(policy.maxU));
+    repmat(log([ones(1,length(poli))*1, 1, 1/policy.SNR]'), 1, length(policy.maxU));
+
+a_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 6);     % 1=gaussian, 2=uniform, 3=orhnstein-uhlenbeck
 
 %% 5. Set up the cost structure
 cost.fcn   = @my_lossAdd;                     % cost function
@@ -209,13 +205,13 @@ cost.epType = 2;
 
 cost.sub{1}.fcn     = @lossSat_2dPIH;
 cost.sub{1}.losi    = [1 2];                            % indicies for saturating cost states
-cost.sub{1}.target  = [0.75 0.05];           % target state
+cost.sub{1}.target  = [0.75 0.125];                      % target state  xe=[0.75 0.125 0.095]
 cost.sub{1}.width   = 0.1;
 cost.sub{1}.angle   = plant.angi;
 
 cost.sub{2}.fcn     = @lossSat_2dPIH;
-cost.sub{2}.losi    = [5 6];                            % indicies for saturating cost states
-cost.sub{2}.target  = [0 0];           % target state
+cost.sub{2}.losi    = [4 5 6];                            % indicies for saturating cost states
+cost.sub{2}.target  = [0 0 0];           % target state
 cost.sub{2}.width   = 20;
 cost.sub{2}.angle   = plant.angi;
 
@@ -226,7 +222,7 @@ nii             = 300;                      % no. of inducing inputs
 dynmodel.induce = zeros(nii,0,1);           % shared/individual inducing inputs per target dim (sparse GP)
 noisyInputs     = false;                    % if true -> train/regress w/ assumed input noise hyperparams
 inputNoiseSTD   = [ones(1,length(dyno))*0.01^2, ones(1,length(policy.maxU))*1e-10.^2];      % starting estimate for the noisy input GP training
-dynmodel.parallel = false;                  % train individual target dimensions in parellel
+dynmodel.parallel = true;                  % train individual target dimensions in parellel
 dynmodel.full   = true;
 compareToFullModel = true;                  % Computes the state trajectory of the full model for comparison to sparse approximation
 trainOpt        = [200 300];                % max. number of line searches [full, sparse]

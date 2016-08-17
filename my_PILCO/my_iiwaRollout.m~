@@ -63,9 +63,8 @@ try
     end
     send(handles.pubJointPosition, jointCommandMsg);
         
-%     q0 = [0; 0.25; 0; -1.43; 0; 1.46; 0];   % [0.45 0 0.4]         
-    q0 = [0; 0.21; 0; -1.75; 0; 1.19; 0];     % [0.45 0 0.3]
-%     q0 = mu0(1:7);
+    q0 = [0; 0.25; 0; -1.43; 0; 1.46; 0];   % [0.45 0 0.3]         
+    q0 = [0; 11.75; 0; -100; 0; 68; 0];     % [0.45 0 0.3]
     
     jointCommandMsg.Position.A1 = q0(1);
     jointCommandMsg.Position.A2 = q0(2);
@@ -130,7 +129,7 @@ try
         
         handles.config.Mode.CartesianStiffness.Stiffness.X = a(i,1);    % TODO: change for different action dimensionality!
         handles.config.Mode.CartesianStiffness.Stiffness.Y = a(i,2);
-        handles.config.Mode.CartesianStiffness.Stiffness.Z = 100;
+        handles.config.Mode.CartesianStiffness.Stiffness.Z = 50;
 %         handles.config.Mode.CartesianStiffness.Stiffness.A = 250;
 %         handles.config.Mode.CartesianStiffness.Stiffness.B = 250;
 %         handles.config.Mode.CartesianStiffness.Stiffness.C = 250;
@@ -182,7 +181,7 @@ while ~response.Success
     if response.Success
         latestPose   = receive(handles.subCartesianPose);
         latestPose.Pose.Position.X = latestPose.Pose.Position.X - 0.2;
-%         latestPose.Pose.Position.Y = latestPose.Pose.Position.Y + 0.05;
+        latestPose.Pose.Position.Y = latestPose.Pose.Position.Y + 0.05;
         send(handles.pubCartesianPose,latestPose);
         pause(2);
 
