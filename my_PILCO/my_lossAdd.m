@@ -51,14 +51,14 @@ for n = 1:Nlos                            % Loop over each of the sub-functions
     costi = cost.sub{n}; i = costi.losi;    % slice
     
     % Call the sub loss function
-    if nargout < 4                      % Just the expected loss & derivs
+    if nargout < 4                      % Just the expected loss & derivs           (happens in my_value.m)
         [Li, Ldm, Lds] = costi.fcn(costi, m(i), s(i,i));        
         L = L + Li;
         dLdm(i) = dLdm(i) + Ldm;
         
         dLds_matrix(i,i) = dLds_matrix(i,i) + reshape(Lds,length(i),length(i));
         dLds = reshape(dLds_matrix,1,D^2);                
-    else                                % Also loss variance     (calcCost)
+    else                                % Also loss variance                        (happens in calcCost)
         [Li, Ldm, Lds, Si, Sdm, Sds, Ci, Cdm, Cds] = costi.fcn(costi, m(i), s(i,i));
         
         L = L + Li;

@@ -3,18 +3,32 @@ global vert fac
 vert = ones(8,3); vert(1,1) = xc(1); vert(4:5,1) = xc(1); vert(8,1) = xc(1);
 vert(1:2,2:3) = -1; vert(3:4,3) = -1; vert(5:6,2) = -1;
 fac = [1 2 6 5;2 3 7 6;3 4 8 7;4 1 5 8;1 2 3 4;5 6 7 8];
+% if ~ishandle(5)         % robot animation
+%     figure(5);
+%     set(gcf,'units','normalized','outerposition',[0.1 0.1 0.9 0.9])
+% else
+%     set(0,'CurrentFigure',5);
+% end
+% patch('Vertices',vert,'Faces',fac,'FaceVertexCData',hsv(6),'FaceColor','flat');
 
 % Test trajectory:
-t1 = 2*T/5;
-t2 = 2*T/4;
-t3 = 3*T/4;
+t1 = 3*T/10;
+t2 = 6*T/10;
+t3 = 9*T/10;
 t_total     = (0:dt:T)';
 t_approach  = [0:dt:t1]';
 t_contact1  = (t1:dt:t2)';
 t_contact2  = (t2:dt:t3)';
 t_final     = (t3:dt:T)';
 
-q0_est  = ones(1,robot.n)*-0.5;
+% q0_est  = ones(1,robot.n)*-0.5;
+x0 = transl(H0);
+if x0(2)<0
+    q0_est = [-pi/2 pi/2 0];
+else
+    q0_est = [pi/2 -pi/2 0];
+end
+
 dq0 = zeros(1,robot.n);    % initial config
 
 xhole2 = xhole + [0.075 0 0];
@@ -25,20 +39,19 @@ if ~peg
     if robot.n==6
         q0 = robot.ikine6s(H0);
     else
-        q0 = robot.ikine(H0,q0_est);
+        q0 = robot.ikine(H0,q0_est,[1 1 0 0 0 1],'pinv');
     end
     H0 = robot.fkine(q0);
-    robot.plot(q0); 
-    patch('Vertices',vert,'Faces',fac,'FaceVertexCData',hsv(6),'FaceColor','flat');
-        
-    Hf = transl(xhole);    
+
+    
+    Hf = transl(xhole);
     
     [xe1, ~, ~] = mtraj(@tpoly, transl(H0)', transl(H1)', t_approach);
     [xe2, ~, ~] = mtraj(@tpoly, transl(H1)', transl(H2)', t_contact1);
     [xe3, ~, ~] = mtraj(@tpoly, transl(H2)', transl(H3)', t_contact2);
     [xe4, ~, ~] = mtraj(@tpoly, transl(H3)', transl(Hf)', t_final);
-
-    Tcart1 = transl(xe1);    Tcart2 = transl(xe2);    Tcart3 = transl(xe3);    Tcart4 = transl(xe4);      
+    
+    Tcart1 = transl(xe1);    Tcart2 = transl(xe2);    Tcart3 = transl(xe3);    Tcart4 = transl(xe4);
     Ttot = cat(3,Tcart1,Tcart2,Tcart3, Tcart4);
     
     xe_des = [transl(Ttot), tr2rpy(Ttot)];          % extract des position  (xyz)
@@ -64,32 +77,32 @@ elseif peg
         q0 = robot.ikine6s(H0);
     elseif robot.n < 6
         q0 = robot.ikine(H0,q0_est,[1 1 0 0 0 1],'pinv');  % numerical inverse kinematics
-    elseif robot.n > 3
+    elseif robot.n < 6 && jointLimit
         [q0,~] = robot.ikcon(H0);
     end
     H0 = robot.fkine(q0);
-
+    
     %T1 = transl(xhole(1), 0, 0);                          % next config in task space
     
     % @lspb  = Trapizoidal function
     % @tpoly = 5th-order polynomial function
-    % 
-%     Tcart1 = ctraj(T0, T1, length(t_approach));           % Cartesian trajectory generation
-%     Tcart2 = ctraj(T1, Thole1, length(t_contact1));
-%     Tcart3 = ctraj(Thole1, Thole2, length(t_insert));
-%     Tcart4 = ctraj(Thole2, Thole2, length(t_rest));
+    %
+    %     Tcart1 = ctraj(T0, T1, length(t_approach));           % Cartesian trajectory generation
+    %     Tcart2 = ctraj(T1, Thole1, length(t_contact1));
+    %     Tcart3 = ctraj(Thole1, Thole2, length(t_insert));
+    %     Tcart4 = ctraj(Thole2, Thole2, length(t_rest));
     
-%     Thole1 = T1; Thole2=T1;
+    %     Thole1 = T1; Thole2=T1;
     [xe1, ~, ~] = mtraj(@tpoly, transl(H0)', transl(H1)', t_approach);
     [xe2, ~, ~] = mtraj(@tpoly, transl(H1)', transl(Thole1)', t_contact1);
     [xe3, ~, ~] = mtraj(@tpoly, transl(Thole1)', transl(Thole2)', t_insert);
     [xe4, ~, ~] = mtraj(@tpoly, transl(Thole2)', transl(Thole2)', t_rest);
-
+    
     Tcart1 = transl(xe1);
     Tcart2 = transl(xe2);
     Tcart3 = transl(xe3);
     Tcart4 = transl(xe4);
-
+    
     Ttot = cat(3,Tcart1,Tcart2,Tcart3,Tcart4);
     
     xe_des = [transl(Ttot), tr2rpy(Ttot)];          % extract des position
@@ -116,7 +129,7 @@ Rd = tr2rt(Ttot);
 
 % Desired angular acceleration
 % dT_d = delta2tr(xe_des);
-% dEUL_d = 
+% dEUL_d =
 
 % domega_d = T_d*ddEUL_d + dT_d*dEUL_d;   % desired angular acceleration
 

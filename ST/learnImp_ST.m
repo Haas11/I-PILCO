@@ -27,7 +27,7 @@ end
 settings_ST_puma;                  % load scenario-specific settings
 ep=num2str(cost.ep);
 expl=num2str(cost.expl);
-basename = strcat('traj_',date,'_','conGP-','_ep-0p',ep(strfind(ep,'.')+1:end),...
+basename = strcat('ST_',date,'_','conGP-','_ep-0p',ep(strfind(ep,'.')+1:end),...
     '_expl-0p',expl(strfind(expl,'.')+1:end),'-');      % filename used for saving data
 
 % numerically test my_gSat for proper means, variances and gradients
@@ -86,8 +86,6 @@ for jj = 1:J
             else
                 set(0,'CurrentFigure',5);
             end
-            clf(5);
-            patch('Vertices',vert,'Faces',fac,'FaceVertexCData',hsv(6),'FaceColor','flat');
             robot.plot(q_sim);
             
             if ~ishandle(7)         % recorded cost iterations
@@ -112,9 +110,9 @@ trialAcumCost{1} = sum(tempCost,1);
 realWorld.mean(1) = mean(trialAcumCost{1},2);
 realWorld.std(1) = std(trialAcumCost{1},0,2);   % flag: 0 = n-1, 1=n
 
-if isempty(find(insertSuccess{1}==2,1))   % None Success
+if isempty(find(insertSuccess{1}==2,2))   % None Success
     scoreCard(1) = 0;
-elseif length(find(insertSuccess{1}==2,1))==J
+elseif length(find(insertSuccess{1}==2,2))==J
     scoreCard(1) = 2;                 % All Success
 else
     scoreCard(1) = 1;                 % Partial Success
@@ -124,7 +122,7 @@ jj=J; initTrial = 0;
 
 %% 3. Controlled learning (N iterations)
 fprintf('\nPILCO Learning started\n--------------------------------\n');
-for j = 2:N
+for j=1:N
     my_trainDynModel;       % train (GP) dynamics model
     my_learnPolicy;         % update policy
     my_applyController;     % apply controller to system

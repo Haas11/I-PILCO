@@ -6,7 +6,7 @@ flag = 0;
 if max(F1) > 500
     flag = 1;
     fprintf('\nsimulation stopped due to high interaction forces.\n');
-elseif max(dq) > 50
+elseif max(dq) > 100
     fprintf('\nsimulation stopped. maximum joint speed reached.\n');
     flag = 1;
 elseif t > 5 && (F1(1) - F0(1) > 15)

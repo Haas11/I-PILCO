@@ -192,7 +192,7 @@ for i=2:J+N
 end
 
 %% 3. Set up the plant structure
-outputNoiseSTD = ones(1,length(odei))*0.001.^2;        % noise added to odei indicies in simulation
+outputNoiseSTD = ones(1,length(odei))*deg2rad(0.1).^2;        % noise added to odei indicies in simulation
 outputNoiseSTD(1,robot.n+1:2*robot.n) = 0.0001.^2;
 outputNoiseSTD(1,end-5:end) = 0.1^2;
 initRollOutNoise = 1e-3;

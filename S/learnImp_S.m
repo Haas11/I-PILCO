@@ -25,7 +25,7 @@ end
 settings_S;                  % load scenario-specific settings
 ep=num2str(cost.ep);
 expl=num2str(cost.expl);
-basename = strcat('_',date,'_','conLin-','_ep-0p',ep(strfind(ep,'.')+1:end),...
+basename = strcat('S_',date,'_','conLin-','_ep-0p',ep(strfind(ep,'.')+1:end),...
     '_expl-0p',expl(strfind(expl,'.')+1:end),'-');      % filename used for saving data
 
 % numerically test my_gSat for proper means, variances and gradients

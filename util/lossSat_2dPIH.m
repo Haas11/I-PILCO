@@ -113,10 +113,10 @@ dCds = zeros(D1,D1*D1);
 
 for i = 1:length(cw)                    % scale mixture of immediate costs
     cost.z = target; cost.W = Q/cw(i)^2;
-    if nargout < 5
+    if nargout < 5                                                              %(happens in value.m)
         [r, rdM, rdS, s2, s2dM, s2dS]                 = lossSat(cost, M, S);
-    else 
-        [r, rdM, rdS, s2, s2dM, s2dS, c2, c2dM, c2dS] = lossSat(cost, m, s);
+    else                                                                        %(happens in calcCost.m)
+        [r, rdM, rdS, s2, s2dM, s2dS, c2, c2dM, c2dS] = lossSat(cost, M, S);
         % scale mixture of IO variances and derivs
         dSdm = dSdm + s2dM;
         dSds = dSds + reshape(s2dS,1,D1^2);

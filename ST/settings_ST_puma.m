@@ -29,10 +29,11 @@
 %  1  theta1         angle first link
 %  2  theta2         angle second link
 %  3  theta3         angle third link
+%  4  theta4        
+%  5  theta5        
+%  6  theta6        
 
-%  4  theta4        angular velocity of 1st pendulum
-%  5  theta5        angular velocity of 2nd pendulum
-%  6  theta6        angular velocity of 2nd pendulum
+%  7-13             angular velocities of links
 
 %  13  X              x-position end-effector in world frame
 %  14  Y              y-position end-effector in world frame
@@ -76,7 +77,7 @@
 warning('on','all');
 rng(0,'twister');
 format short; format compact;
-global diffChecks REF_PRIOR 
+global diffChecks REF_PRIOR vert fac
 global diffTol conCheck gpCheck propCheck valueCheck satCheck lossCheck checkFailed
 diffChecks = 0;  diffTol   = 1e-3;  checkFailed = 0;
 conCheck   = 0;  gpCheck   = 0;     propCheck   = 0;    % GP check = very heavy!
@@ -94,19 +95,19 @@ if diffChecks
 end
 
 opt.verbosity = 3;                      % optimization verbosity      [0-3]
-plotting.verbosity = 2;                 % plotting verbosity          [0-3]
+plotting.verbosity = 3;                 % plotting verbosity          [0-3]
 
 %% 1. Define state indices
 stateLength = 30;
 indices = 1:1:stateLength;
-n=3;
+n=6;
 odei = 1:1:2*n+6;
 augi    = [];                                           % augi  indicies for variables augmented to the ode variables
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
-dyno    = [13 14 19 20 25 26];                            % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
-dyni    = [1 2 3 4 5 6];                                  % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
+dyno    = [13 14 19 20 25 26];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
+dyni    = [1 2 3 4];                                    % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
 difi    = [1 2 3 4 5 6];                                % difi  indicies for training targets that are differences                      (subset of dyno)
-poli    = [1 2 3 4];                                  % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
+poli    = [1 2 3 4];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
 
 REF_PRIOR  = 0;                                         % encode prior reference mean?
 refi    = [];                                           % indices for which to encode a reference as  prior mean
@@ -117,20 +118,11 @@ actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]', 'ref_x','ref_y'};%, 'Kp_{rot} 
 
 %% 2. Set up the scenario
 % General:
-T = 5;                % [s] Rollout time
+T = 10.0;                % [s] Rollout time
 N = 30;                            % no. of controller optimizations
 Ntest = 3;                         % no. of roll outs to test controller quality
-J = 1;                             % no. of initial training rollouts
+J = 2;                             % no. of initial training rollouts
 K = 1;                             % no. of initial states for which we optimize
-
-colorVec = {'r','b','g','k','m','c','y','r-.','b-.','g-.','k-.','m-.','c-.','y-.',...
-    'r:','b:','g:','k:','m:','c:','y:','r--','b--','g--','k--','m--','c--','y--'};
-colorVec = [colorVec,colorVec];
-iterVec = cell(1,J+N);
-iterVec{1} = 'iter. 1';
-for i=2:J+N
-    iterVec{i} = num2str(i);
-end
 
 % Timing constraints:
 dt = 0.01;              % [s] controller sampling time
@@ -139,13 +131,15 @@ t_pilco = (0:dt_pilco:T)';
 t = 0:dt:T;
 H = ceil(T/dt_pilco);              % no. of timesteps per rollout
 
+close all
 % Robot model:
 fprintf('\nInitializing robot model');
 run mdl_puma560.m
 robot = p560;
+% robot = stanf;
 robot.tool = transl([0 0 0]);
-robot.plotopt = {'jaxes','delay',dt_pilco,'trail','y--','zoom',0.75,'scale',0.75};
-robot.plotopt3d = {'jaxes','delay',dt_pilco,'scale',1,'noa','base'};
+robot.plotopt = {'jaxes','delay',dt_pilco*2,'trail','y--','zoom',1,'scale',0.4,'arrow','xyz','workspace',[-1 1 -1 1 -1 1]};
+robot.plotopt3d = {'jaxes','delay',dt_pilco,'scale',0.4,'xyz','arrow','workspace',[-1 1 -1 1 -1 1]};
 n = robot.n; m = n;
 robot.fast = 1;
 robot.gravity = [0, -9.81, 0];
@@ -159,28 +153,28 @@ perturbedRobotNF.gravity = robot.gravity;
 
 % Spatial constraints:
 peg = 0;    % mode
-xhole = [0.5, 0.2, 0];   % center hole location [x, y, phi/z]
-xc    = [0.45, 0.45, 0.45, 10, 10, 10]';  % [m] environment constraint location
+xhole = [0.55, 0.1, 0];   % center hole location [x, y, phi/z]
+xc    = [0.5, 0.5, 0.5, 10, 10, 10]';  % [m] environment constraint location
 
-x0   = [0.35 -0.1 0];
-% H0   = transl(x0);      % start pose end-effector
-H0 = rt2tr(rpy2r([0 0 0]), x0');
-H1   = transl([0.5 0 0]);   
-H2 = transl(0.55, 0.25, 0);
-H3 = transl(0.6, 0.10, 0);
+H0   = transl([0.30 0 0]);      % start pose end-effector
+H1   = transl([0.55 0.2 0]);   
+H2 = transl(0.6, 0, 0);
+H3 = transl(0.55, 0.2, 0);
 [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td]...
     = genTrajectory(robot, peg, H0, H1, H2, H3, xhole, xc, T, dt);
 deltaXe_des = diff(xe_des(1:length(t),2:end));
-ainit{1} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
-    
-H0 = transl([0.3 0.2 0]);       % start pose end-effector
-H1 = transl([0.5 0.2 0]);       
-H2 = transl(0.6, 0.05, 0);
-H3 = transl(0.55, 0.15, 0);
+aR_init{1} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
+
+% Second rollout:
+H0 = transl([0.30 0 0]);       % start pose end-effector
+H1 = transl([0.55 0 0]);       
+H2 = transl(0.6, 0.2, 0);
+H3 = transl(0.55, 0, 0);
 [mu01, ~, xe_des, ~, ~, ~, ~, ~, ~]...
     = genTrajectory(robot, peg, H0, H1, H2, H3, xhole, xc, T, dt);
 deltaXe_des = diff(xe_des(1:length(t),2:end));
-ainit{2} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
+aR_init{2} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
+% robot.plot(mu01(1:robot.n));
 
 initialMu0 = [mu0; mu01];
 
@@ -208,11 +202,21 @@ if plotting.verbosity > 1
     ylabel('Acceleration [m/s/s]'); xlabel(strcat('Time steps   (d_t = ',num2str(dt), ')'));
     axis tight
     grid on
+    if plotting.verbosity > 2
+        if ~ishandle(5)         % robot animation
+            figure(5);
+            %     set(gcf,'units','normalized','outerposition',[0.1 0.1 0.9 0.9])
+        else
+            set(0,'CurrentFigure',5);
+        end
+        patch('Vertices',vert,'Faces',fac,'FaceVertexCData',hsv(6),'FaceColor','flat');
+        robot.plot(mu0(1:robot.n));
+    end
 end
 
 % Environment:
-Kp_env = [5e3, 5e3, 5e3, 0, 0, 0];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
-Kd_env = [1, 1, 0, 0, 0, 0];              %[Ns/m] damping
+Kp_env = [1e4, 1e4, 1e4, 0, 0, 0];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
+Kd_env = [1, 1, 1, 0, 0, 0];              %[Ns/m] damping
 
 % Display Scenario in Console:
 fprintf('\nFinal transformation: \nH^0_n(T) = \n\n');
@@ -225,7 +229,8 @@ disp(xhole)
 
 
 %% 3. Set up the plant structure
-outputNoiseSTD = ones(1,length(odei))*0.01.^2;                          % noise added to odei indicies in simulation
+outputNoiseSTD = ones(1,length(odei))*deg2rad(0.1).^2;                          % noise added to odei indicies in simulation
+outputNoiseSTD(1,robot.n+1:2*robot.n) = deg2rad(0.1).^2;
 outputNoiseSTD(1,end-5:end) = 0.1^2;
 
 plant.noise = diag(outputNoiseSTD);
@@ -241,20 +246,24 @@ plant.difi = difi;
 plant.refi = refi;
 plant.prop = @my_propagated;   % handle to function that propagates state over time
 plant.simconstraint = @constraint_check;
-plant.rollout_model = 'IPILCO_SimpleImp_relativeRPY_ST';
+plant.rollout_model = 'IPILCO_relativeRPY_ST';
 plant.indices = indices;
 plant.startStateInterval = startStateInterval;
 
 %% 4. Set up the policy structure
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
-policy.maxU  = [250/2 250/2, 0.0025  0.0025];
-policy.minU  = [10    10,   -0.0025 -0.0025];
+maxVel = 0.5;         % maximum Cartesian velocity
+policy.maxU  = [250/2 250/2, dt*maxVel  dt*maxVel];
+policy.minU  = [10    10,   -dt*maxVel -dt*maxVel];
 policy.impIdx = [1, 2]; 			% non-negative indices of policy outputs (saturate + translate)
 policy.refIdx = [3, 4];             % reference indices (only saturate)
 Du = length(policy.maxU);
+translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
 
-seedMatrix = 1:1:J*length(policy.impIdx);
-seedMatrix = reshape(seedMatrix,J,[]);
+% seedMatrix = 1:1:J*length(policy.impIdx);
+% seedMatrix = reshape(seedMatrix,J,[]);
+
+aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 7, 0.2);
 
 nc = 25;
 policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
@@ -280,17 +289,27 @@ cost.refPen = false;                            % energy penalty on reference ac
 cost.epType = 2;                                % energy cost function type: 1=1-norm, 2=mean squared
 
 cost.sub{1}.fcn     = @lossSat_2dPIH;
-cost.sub{1}.losi    = [1 2];                        % indicies for saturating cost states
-cost.sub{1}.target  = ([xhole(1:2)] + [0.05 0])';   % target state
-cost.sub{1}.weight  = [3 1];                        % weight of states costs relative to each other.
-cost.sub{1}.width   = 0.05;
+cost.sub{1}.losi    = [1];                        % indicies for saturating cost states
+cost.sub{1}.target  = ([xhole(1)] + [0.05])';   % target state
+cost.sub{1}.weight  = 1;                        % weight of states costs relative to each other.
+cost.sub{1}.width   = 0.1;
 cost.sub{1}.angle   = plant.angi;
 
-cost.sub{2}.fcn     = @lossSat_2dPIH;
-cost.sub{2}.losi 	= [5 6];                        % indicies for force
-cost.sub{2}.target  = [0 0];                        % target state
-cost.sub{2}.width   = 20;                           % Weight matrix
-cost.sub{2}.angle   = plant.angi;                   % index of angle (for cost function)
+cost.sub{2}.fcn     = @my_lossHinge;
+cost.sub{2}.losi 	= 5;                        % indicies for force
+cost.sub{2}.a       = 0.02;                       % target state
+cost.sub{2}.b       = [-5 5];                     % Weight matrix
+
+cost.sub{3}.fcn     = @my_lossHinge;
+cost.sub{3}.losi 	= 6;                        % indicies for force
+cost.sub{3}.a       = 0.02;                       % target state
+cost.sub{3}.b       = [-5 5];                     % Weight matrix
+
+% cost.sub{2}.fcn     = @lossSat_2dPIH;
+% cost.sub{2}.losi 	= [5 6];                        % indicies for force
+% cost.sub{2}.target  = [0 0];                        % target state
+% cost.sub{2}.width   = 30;                           % Weight matrix
+% cost.sub{2}.angle   = plant.angi;                   % index of angle (for cost function)
 
 %% 6. Set up the GP dynamics model structure
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions
@@ -321,8 +340,11 @@ Mfull = cell(N,1); Sfull = cell(N,1);
 insertSuccess = cell(1,N+1);    scoreCard = zeros(1,N+1);
 reference = zeros(H+1,length(dyno));
 
-% %%
-% fantasy.mean{N} = []; fantasy.std{N} = [];
-% realCost{N}=[];  latent{N}=[];  realAcumCost(N) = 0;
-% M{N} = [];  Sigma{N} = [];
-% insertSuccess(N) = 0;
+colorVec = {'r','b','g','k','m','c','y','r-.','b-.','g-.','k-.','m-.','c-.','y-.',...
+    'r:','b:','g:','k:','m:','c:','y:','r--','b--','g--','k--','m--','c--','y--'};
+colorVec = [colorVec,colorVec];
+iterVec = cell(1,J+N);
+iterVec{1} = 'iter. 1';
+for i=2:J+N
+    iterVec{i} = num2str(i);
+end

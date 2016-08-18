@@ -12,9 +12,9 @@ fprintf('Outputs that are differences:')
 disp(stateNames(indices(dyno(difi))))
 fprintf('\nOutputs w/ prior reference:')
 disp(stateNames(indices(dyno(refi))))
-fprintf('No. of inducing inputs: \t%i \n', nii)
-fprintf('Sampling interval: \t\t%4.2f [s] \n', dt_pilco)
-fprintf('Noisy inputs: \t\t\t%i \n', noisyInputs)
+fprintf('\nNo. of inducing inputs: \t%i \n', nii)
+fprintf('Sampling interval: \t\t\t%4.2f [s] \n', dt_pilco)
+fprintf('Noisy inputs: \t\t\t\t%i \n', noisyInputs)
 
 fprintf('\n\nCost parameters:\n')
 fprintf('=====================================================\n');
@@ -23,11 +23,13 @@ fprintf('Exploration param: \t%4.5f \n\n', cost.expl)
 if isfield(cost,'sub')
     for i=1:length(cost.sub)
         fprintf('Inputs %i: \t',i); disp(stateNames(dyno(cost.sub{i}.losi)))
+        if isfield(cost,'width')
         fprintf('Cost width %i: \t\t%4.5f \n\n', i, cost.sub{i}.width)
+        end
     end
 else
     fprintf('Inputs %i: \t',i); disp(stateNames(indices(dyno(cost.losi))))
-    fprintf('Cost width \t\t%4.2f \n\n', cost.width)
+    fprintf('Cost width \t\t%4.2f \n', cost.width)
 end
 
 fprintf('\n\nPolicy parameters:\n')
@@ -42,6 +44,11 @@ fprintf('Learned parameters: \t\t');
 disp(actionTitles)
 fprintf('Inputs: \t\t\t')
 disp(stateNames(indices(dyno(poli))))
+fprintf('Limits: \t\t\t')
+disp(policy.minU.*translVec)
+fprintf('\t\t\t\t\t')
+disp(policy.maxU.*translVec)
+
 
 fprintf('No. of learning iterations: \t %i \n', N)
 fprintf('No. of linesearches: \t\t\t%i \n', opt.length)
