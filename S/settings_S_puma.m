@@ -132,7 +132,7 @@ for i=2:J+N
 end
 
 % Timing:
-dt = 0.001;             % [s] controller sampling time
+dt = 0.005;             % [s] controller sampling time
 dt_pilco = 0.1;          % [s] PILCO sampling rate 
 T = 5.0;                % [s] Rollout time
 H = ceil(T/dt_pilco);              % no. of timesteps per rollout
@@ -209,9 +209,9 @@ fprintf('Hole location \t\t = \t')
 disp(xhole)
 
 %% 3. Set up the plant structure
-outputNoiseSTD = ones(1,length(odei))*0.005.^2;                          % noise added to odei indicies in simulation
+outputNoiseSTD = ones(1,length(odei))*deg2rad(0.1).^2;                          % noise added to odei indicies in simulation
+outputNoiseSTD(1,robot.n+1:2*robot.n) = deg2rad(0.1).^2;
 outputNoiseSTD(1,end-5:end) = 0.1^2;
-initRollOutNoise = 1e-3;
 
 plant.noise = diag(outputNoiseSTD);
 plant.dt = dt_pilco;
@@ -226,7 +226,7 @@ plant.difi = difi;
 plant.refi = refi;
 plant.prop = @my_propagated;   % handle to function that propagates state over time
 plant.simconstraint = @constraint_check;
-plant.rollout_model = 'IPILCO_SimpleImp_relativeRPY_S';
+plant.rollout_model = 'IPILCO_relativeRPY_S';
 plant.indices = indices;
 plant.startStateInterval = startStateInterval;
 
@@ -235,14 +235,15 @@ policy.maxU  = [250 250]./2; policy.minU  = [10 10];
 policy.impIdx = [1 2]; policy.refIdx = [];
 Du = length(policy.maxU);
 
-seedMatrix = 1:1:J*Du;
-seedMatrix = reshape(seedMatrix,J,[]);
-
 % Linear Controller:
 policy.fcn = @(policy,m,s)my_mixedConCat(@my_conlin,@my_mixedGSat,policy,m,s);  % linear saturating controller
 policy.p.w = rand(Du,length(poli));
 policy.p.b = rand(Du,1);
 policy.rempap = true;
+
+translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
+
+aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 7, 0.2);
 
 % GP Controller:
 % policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
@@ -253,44 +254,37 @@ policy.rempap = true;
 %     repmat(log([ones(1,length(poli))*1, 1, 0.01]'), 1, length(policy.maxU));
 
 %% 5. Set up the cost structure
+cost.fcn   = @my_lossAdd2;                       % cost function
+cost.gamma = 1;                                 % discount factor  =1 for finite horizon
+cost.expl  = -0.25;                             % exploration weight (UCB) smoothes the value function out and simplifies the optimization problem.
 
-% cost.fcn = @my_lossSat;                     % cost function
-% cost.gamma = 1;                             % discount factor
-% cost.width = [0.02 0.05];                           % cost function width
-% cost.angle = plant.angi;                    % index of angle (for cost function)
-% cost.target  = ([xhole(1:2) 0 0] + [0.05 0 0 0])';           % target state
-% cost.losi = [1 2];        % relevant indices
+% Energy penalty parameters:
+cost.ep  = 0.001;                              % weight
+cost.idx = policy.impIdx;
 
-% Compounded loss function:
-cost.fcn   = @my_lossAdd;                     % cost function
-cost.gamma = 1;                               % discount factor  =1 for finite horizon
-cost.expl  = -0.3;                           % exploration parameter (UCB) smoothes the value function out and simplifies the optimization problem.
-cost.ep    = 0.001;                           % energy penalty
-cost.epType = 2;
+nonIdx = find(~ismember(1:Du,cost.idx));
+normalizer = (policy.maxU*diag(translVec)).^2;
+quadraticWidth  = diag(normalizer);          % normalization matrix for quadratic ep
+iT = inv(quadraticWidth);
+iT(nonIdx,nonIdx)= 0;    
+cost.iT = iT;
 
 cost.sub{1}.fcn     = @lossSat_2dPIH;
-cost.sub{1}.losi    = [1 2];                            % indicies for saturating cost states
-cost.sub{1}.target  = ([xhole(1:2)] + [0.05 0])';           % target state
+cost.sub{1}.losi    = [1 2];                        % indicies for saturating cost states
+cost.sub{1}.target  = ([xhole(1:2)] + [0.05 0])';   % target state
 cost.sub{1}.width   = 0.05;
 cost.sub{1}.angle   = plant.angi;
+cost.sub{1}.expl    = 0;
 
-cost.sub{2}.fcn     = @lossSat_2dPIH;
-cost.sub{2}.losi    = [1 2];                            % indicies for saturating cost states
-cost.sub{2}.target  = ([xhole(1:2)] + [0.05 0])';           % target state
-cost.sub{2}.width   = 0.02;
-cost.sub{2}.angle   = plant.angi;
+cost.sub{2}.fcn     = @my_lossHinge;
+cost.sub{2}.losi 	= 5;                        % indicies for force
+cost.sub{2}.a       = 0.02;                     % target state
+cost.sub{2}.b       = [-5 5];                   % Weight matrix
 
-% cost.sub{2}.fcn     = @lossSat_2dPIH;
-% cost.sub{2}.losi    = [1 2];                            % indicies for saturating cost states
-% cost.sub{2}.target  = ([xhole(1:2)] + [0.05 0])';           % target state
-% cost.sub{2}.width   = 0.01;
-% cost.sub{2}.angle   = plant.angi;
-
-cost.sub{3}.fcn     = @lossSat_2dPIH;
-cost.sub{3}.losi 	= 5;                            % indicies for force
-cost.sub{3}.target  = 0;                            % target state
-cost.sub{3}.width   = 10;                           % Weight matrix
-cost.sub{3}.angle   = plant.angi;                   % index of angle (for cost function)
+cost.sub{3}.fcn     = @my_lossHinge;
+cost.sub{3}.losi 	= 6;                        % indicies for force
+cost.sub{3}.a       = 0.02;                     % target state
+cost.sub{3}.b       = [-5 5];                   % Weight matrix
 
 %% 6. Set up the GP dynamics model structure
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions

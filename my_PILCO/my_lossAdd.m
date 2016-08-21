@@ -51,20 +51,21 @@ for n = 1:Nlos                            % Loop over each of the sub-functions
     costi = cost.sub{n}; i = costi.losi;    % slice
     
     % Call the sub loss function
-    if nargout < 4                      % Just the expected loss & derivs           (happens in my_value.m)
+    if nargout < 4                      % Just the expected loss & derivs           (happens in my_value.m nargin = 3)
         [Li, Ldm, Lds] = costi.fcn(costi, m(i), s(i,i));        
         L = L + Li;
         dLdm(i) = dLdm(i) + Ldm;
         
         dLds_matrix(i,i) = dLds_matrix(i,i) + reshape(Lds,length(i),length(i));
         dLds = reshape(dLds_matrix,1,D^2);                
-    else                                % Also loss variance                        (happens in calcCost)
+    else                                % Also loss variance                        (happens in calcCost -> nargin = 4)
         [Li, Ldm, Lds, Si, Sdm, Sds, Ci, Cdm, Cds] = costi.fcn(costi, m(i), s(i,i));
         
         L = L + Li;
         S = S + Si + Ci'*s(i,:)*C + C'*s(:,i)*Ci;   % V(a+b) = V(a)+V(b)+C(a,b)+C(b,a)                
         
         if nargout > 4    % derivatives for exploration term             TODO: Does this ever happen? only for added losses (scenario loss functions only have 4 outputs max)
+            % I Suspect this nargout statement is WRONG!!!
             dLdm(i) = dLdm(i) + Ldm;
             
             dLds_matrix(i,i) = dLds_matrix(i,i) + reshape(Lds,length(i),length(i));
@@ -95,7 +96,7 @@ end
 
 % =========================================================================
 % Exploration if required
-if isfield(cost,'expl') && cost.expl ~= 0 && abs(S)>1e-12 && nargout > 3 % why this nargout? TODO: otherwise double? exploration also happens in lossSat_xxx-->
+if isfield(cost,'expl') && cost.expl ~= 0 && abs(S)>1e-12 %&& nargout > 3 % why this nargout? TODO: otherwise double? exploration also happens in lossSat_xxx-->
     L = L + cost.expl*sqrt(S);
     dLdm = dLdm + cost.expl*0.5/sqrt(S)*dSdm;
     dLds = dLds + cost.expl*0.5/sqrt(S)*dSds;

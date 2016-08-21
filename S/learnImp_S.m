@@ -1,4 +1,4 @@
-
+ 
 %% link3_learnImp.m
 % *Summary:* Main file for learning planar Peg-in-Hole insertion task.
 % Probabilistic model-based RL,
@@ -22,7 +22,7 @@ figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
     clf(figHandles(i));
 end
-settings_S;                  % load scenario-specific settings
+settings_S_puma;                  % load scenario-specific settings
 ep=num2str(cost.ep);
 expl=num2str(cost.expl);
 basename = strcat('S_',date,'_','conLin-','_ep-0p',ep(strfind(ep,'.')+1:end),...

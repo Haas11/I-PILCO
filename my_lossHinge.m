@@ -36,11 +36,6 @@
 
 function [L, dLdm, dLds, S2, dSdm, dSds, C2, dCdm, dCds] = my_lossHinge(cost, m, s)
 %% Code
-if isfield(cost,'width')
-    cw = cost.width;
-else
-    cw = 1;
-end
 if ~isfield(cost,'expl') || isempty(cost.expl)
     b = 0;
 else
@@ -75,14 +70,9 @@ if nargout < 5                                                              %(ha
     [r, rdM, rdS, s2, s2dM, s2dS]                 = lossHinge(cost, M, S);
 else                                                                        %(happens in calcCost.m for loss variance)
     [r, rdM, rdS, s2, s2dM, s2dS, c2, c2dM, c2dS] = lossHinge(cost, M, S);
-    % scale mixture of IO variances and derivs
     dSdm = dSdm + s2dM;
     dSds = dSds + reshape(s2dS,1,D0^2);
-    % IS SIMPLE ADDITION THE CORRECT WAY TO SCALE MIXTURES HERE?!?!
-    % FOR 1 LENGTH SCALE IT SHOULD MAKE NO DIFFERENCE.
-    
-    % TODO: tested multiple length scales -> results in negative
-    % IO variances! how?
+
     C2 = C2 + c2;
     dCdm = dCdm + c2dM;
     dCds = dCds + c2dS;
@@ -98,10 +88,3 @@ if (b~=0 || ~isempty(b)) && abs(s2)>1e-12
     dLdm = dLdm + b/sqrt(s2) * ( s2dM(:)'*Mdm + s2dS(:)'*Sdm )/2;
     dLds = dLds + b/sqrt(s2) * ( s2dM(:)'*Mds + s2dS(:)'*Sds )/2;
 end
-
-% normalize
-n = length(cw);
-L = L/n;
-dLdm = dLdm/n;
-dLds = dLds/n;
-S2 = S2/n;

@@ -107,7 +107,7 @@ angi    = [];                                           % angi  indicies for var
 dyno    = [13 14 19 20 25 26];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
 dyni    = [1 2 3 4];                                    % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
 difi    = [1 2 3 4 5 6];                                % difi  indicies for training targets that are differences                      (subset of dyno)
-poli    = [1 2 3 4];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
+poli    = [1 2];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
 
 REF_PRIOR  = 0;                                         % encode prior reference mean?
 refi    = [];                                           % indices for which to encode a reference as  prior mean
@@ -265,7 +265,7 @@ translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
 
 aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 7, 0.2);
 
-nc = 25;
+nc = 100;
 policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
 policy.p.targets = 0.1*randn(nc, length(policy.maxU));                                         % init. policy targets 
 policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]
@@ -279,14 +279,20 @@ policy.p.hyp = ...                                                              
 % cost.target  = ([xhole(1)] + [0.05])';                % target state
 % cost.losi = [1 2];                                    % relevant indices
 
-cost.fcn   = @my_lossAdd;                       % cost function
+cost.fcn   = @my_lossAdd2;                       % cost function
 cost.gamma = 1;                                 % discount factor  =1 for finite horizon
 cost.expl  = -0.25;                             % exploration weight (UCB) smoothes the value function out and simplifies the optimization problem.
 
 % Energy penalty parameters:
-cost.ep     = 0.001;                              % weight
-cost.refPen = false;                            % energy penalty on reference actions
-cost.epType = 2;                                % energy cost function type: 1=1-norm, 2=mean squared
+cost.ep  = 0.001;                              % weight
+cost.idx = policy.impIdx;
+
+nonIdx = find(~ismember(1:Du,cost.idx));
+normalizer = (policy.maxU*diag(translVec)).^2;
+quadraticWidth  = diag(normalizer);          % normalization matrix for quadratic ep
+iT = inv(quadraticWidth);
+iT(nonIdx,nonIdx)= 0;    
+cost.iT = iT;
 
 cost.sub{1}.fcn     = @lossSat_2dPIH;
 cost.sub{1}.losi    = [1];                        % indicies for saturating cost states
@@ -294,16 +300,17 @@ cost.sub{1}.target  = ([xhole(1)] + [0.05])';   % target state
 cost.sub{1}.weight  = 1;                        % weight of states costs relative to each other.
 cost.sub{1}.width   = 0.1;
 cost.sub{1}.angle   = plant.angi;
+cost.sub{1}.expl       = 0;
 
 cost.sub{2}.fcn     = @my_lossHinge;
 cost.sub{2}.losi 	= 5;                        % indicies for force
-cost.sub{2}.a       = 0.02;                       % target state
-cost.sub{2}.b       = [-5 5];                     % Weight matrix
+cost.sub{2}.a       = 0.02;                     % target state
+cost.sub{2}.b       = [-5 5];                   % Weight matrix
 
 cost.sub{3}.fcn     = @my_lossHinge;
 cost.sub{3}.losi 	= 6;                        % indicies for force
-cost.sub{3}.a       = 0.02;                       % target state
-cost.sub{3}.b       = [-5 5];                     % Weight matrix
+cost.sub{3}.a       = 0.02;                     % target state
+cost.sub{3}.b       = [-5 5];                   % Weight matrix
 
 % cost.sub{2}.fcn     = @lossSat_2dPIH;
 % cost.sub{2}.losi 	= [5 6];                        % indicies for force
