@@ -107,7 +107,7 @@ angi    = [];                                           % angi  indicies for var
 dyno    = [13 14 19 20 25 26];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
 dyni    = [1 2 3 4];                                    % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
 difi    = [1 2 3 4 5 6];                                % difi  indicies for training targets that are differences                      (subset of dyno)
-poli    = [1 2 3 4];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
+poli    = [1 2];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
 
 REF_PRIOR  = 0;                                         % encode prior reference mean?
 refi    = [];                                           % indices for which to encode a reference as  prior mean
@@ -120,8 +120,8 @@ actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]', 'ref_x','ref_y'};%, 'Kp_{rot} 
 % General:
 T = 10.0;                % [s] Rollout time
 N = 30;                            % no. of controller optimizations
-Ntest = 3;                         % no. of roll outs to test controller quality
-J = 2;                             % no. of initial training rollouts
+Ntest = 2;                         % no. of roll outs to test controller quality
+J = 1;                             % no. of initial training rollouts
 K = 1;                             % no. of initial states for which we optimize
 
 % Timing constraints:
@@ -170,16 +170,16 @@ H0 = transl([0.30 0 0]);       % start pose end-effector
 H1 = transl([0.55 0 0]);       
 H2 = transl(0.6, 0.2, 0);
 H3 = transl(0.55, 0, 0);
-[mu01, ~, xe_des, ~, ~, ~, ~, ~, ~]...
+[mu01, ~, xe_des1, ~, ~, ~, ~, ~, ~]...
     = genTrajectory(robot, peg, H0, H1, H2, H3, xhole, xc, T, dt);
-deltaXe_des = diff(xe_des(1:length(t),2:end));
+deltaXe_des = diff(xe_des1(1:length(t),2:end));
 aR_init{2} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
 % robot.plot(mu01(1:robot.n));
 
 initialMu0 = [mu0; mu01];
 
-initPredVar = 0.001^2;                               % initial state variance around mean
-startStateInterval = [0 0 0 0 0 0]';             % interval for which start states may vary [x y z]
+initPredVar = 0.001^2;                              % initial state variance around mean
+startStateInterval = [0 0 0 0 0 0]';                % interval for which start states may vary [x y z]
 mu0Sim = mu0(dyno);                                 % initial mean for simulation
 S0Sim = diag(ones(1,length(dyno))*initPredVar);     % covariance matrix of initial state distribution during simulation 
 
@@ -260,12 +260,9 @@ policy.refIdx = [3, 4];             % reference indices (only saturate)
 Du = length(policy.maxU);
 translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
 
-% seedMatrix = 1:1:J*length(policy.impIdx);
-% seedMatrix = reshape(seedMatrix,J,[]);
-
 aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 7, 0.2);
 
-nc = 25;
+nc = 75;
 policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
 policy.p.targets = 0.1*randn(nc, length(policy.maxU));                                         % init. policy targets 
 policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]
@@ -281,13 +278,13 @@ policy.p.hyp = ...                                                              
 
 cost.fcn   = @my_lossAdd2;                       % cost function
 cost.gamma = 1;                                 % discount factor  =1 for finite horizon
-cost.expl  = -0.25;                             % exploration weight (UCB) smoothes the value function out and simplifies the optimization problem.
+cost.expl  = -0.4;                             % exploration weight (UCB) smoothes the value function out and simplifies the optimization problem.
 
 % Energy penalty parameters:
-cost.ep  = 0.001;                              % weight
-cost.idx = policy.impIdx;
+cost.ep  = 0.01;                              % weight
+idx = policy.impIdx;
 
-nonIdx = find(~ismember(1:Du,cost.idx));
+nonIdx = find(~ismember(1:Du,idx));
 normalizer = (policy.maxU*diag(translVec)).^2;
 quadraticWidth  = diag(normalizer);          % normalization matrix for quadratic ep
 iT = inv(quadraticWidth);
@@ -295,28 +292,20 @@ iT(nonIdx,nonIdx)= 0;
 cost.iT = iT;
 
 cost.sub{1}.fcn     = @lossSat_2dPIH;
-cost.sub{1}.losi    = [1];                        % indicies for saturating cost states
-cost.sub{1}.target  = ([xhole(1)] + [0.05])';   % target state
-cost.sub{1}.weight  = 1;                        % weight of states costs relative to each other.
-cost.sub{1}.width   = 0.1;
+cost.sub{1}.losi    = [1 2];                        % indicies for saturating cost states
+cost.sub{1}.target  = (xhole(1) + [0.05])';   % target state
+cost.sub{1}.width   = 0.05;
 cost.sub{1}.angle   = plant.angi;
-cost.sub{1}.expl       = 0;
 
 cost.sub{2}.fcn     = @my_lossHinge;
 cost.sub{2}.losi 	= 5;                        % indicies for force
-cost.sub{2}.a       = 0.02;                       % target state
-cost.sub{2}.b       = [-5 5];                     % Weight matrix
+cost.sub{2}.a       = 0.02;                     % target state
+cost.sub{2}.b       = [-1 1];                   % Weight matrix
 
 cost.sub{3}.fcn     = @my_lossHinge;
 cost.sub{3}.losi 	= 6;                        % indicies for force
-cost.sub{3}.a       = 0.02;                       % target state
-cost.sub{3}.b       = [-5 5];                     % Weight matrix
-
-% cost.sub{2}.fcn     = @lossSat_2dPIH;
-% cost.sub{2}.losi 	= [5 6];                        % indicies for force
-% cost.sub{2}.target  = [0 0];                        % target state
-% cost.sub{2}.width   = 30;                           % Weight matrix
-% cost.sub{2}.angle   = plant.angi;                   % index of angle (for cost function)
+cost.sub{3}.a       = 0.02;                     % target state
+cost.sub{3}.b       = [-1 1];                   % Weight matrix
 
 %% 6. Set up the GP dynamics model structure
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions

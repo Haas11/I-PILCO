@@ -95,7 +95,7 @@ if diffChecks
 end
 
 opt.verbosity = 3;                      % optimization verbosity      [0-3]
-plotting.verbosity = 3;                 % plotting verbosity          [0-3]
+plotting.verbosity = 2;                 % plotting verbosity          [0-3]
 
 %% 1. Define state indices
 stateLength = 30;
@@ -107,7 +107,7 @@ angi    = [];                                           % angi  indicies for var
 dyno    = [13 14 19 20 25 26];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
 dyni    = [1 2 3 4];                                    % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
 difi    = [1 2 3 4 5 6];                                % difi  indicies for training targets that are differences                      (subset of dyno)
-poli    = [1 2];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
+poli    = [1 2];                                        % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
 
 REF_PRIOR  = 0;                                         % encode prior reference mean?
 refi    = [];                                           % indices for which to encode a reference as  prior mean
@@ -118,10 +118,10 @@ actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]', 'ref_x','ref_y'};%, 'Kp_{rot} 
 
 %% 2. Set up the scenario
 % General:
-T = 10.0;                % [s] Rollout time
+T = 10.0;                           % [s] Rollout time
 N = 30;                            % no. of controller optimizations
-Ntest = 3;                         % no. of roll outs to test controller quality
-J = 2;                             % no. of initial training rollouts
+Ntest = 2;                         % no. of roll outs to test controller quality
+J = 1;                             % no. of initial training rollouts
 K = 1;                             % no. of initial states for which we optimize
 
 % Timing constraints:
@@ -144,7 +144,7 @@ n = robot.n; m = n;
 robot.fast = 1;
 robot.gravity = [0, -9.81, 0];
 
-dynPert = 0.20;          % [%] Perturbation of dynamics during simulation w.r.t ID
+dynPert = 0.15;          % [%] Perturbation of dynamics during simulation w.r.t ID
 fprintf('\nDynamics perturbed by %2.0f percent.\n',dynPert*100);
 perturbedRobot = robot.perturb(dynPert); % perturbed robot model
 perturbedRobotNF = perturbedRobot.nofriction('all');
@@ -153,13 +153,13 @@ perturbedRobotNF.gravity = robot.gravity;
 
 % Spatial constraints:
 peg = 0;    % mode
-xhole = [0.55, 0.1, 0];   % center hole location [x, y, phi/z]
-xc    = [0.5, 0.5, 0.5, 10, 10, 10]';  % [m] environment constraint location
+xhole = [0.5, 0.3, 0];   % center hole location [x, y, phi/z]
+xc    = [0.45, 0.6, 0.6, 10, 10, 10]';  % [m] environment constraint location
 
 H0   = transl([0.30 0 0]);      % start pose end-effector
-H1   = transl([0.55 0.2 0]);   
-H2 = transl(0.6, 0, 0);
-H3 = transl(0.55, 0.2, 0);
+H1   = transl([0.55 0.4 0]);   
+H2 = transl(0.6, 0.2, 0);
+H3 = transl(0.6, 0.3, 0);
 [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td]...
     = genTrajectory(robot, peg, H0, H1, H2, H3, xhole, xc, T, dt);
 deltaXe_des = diff(xe_des(1:length(t),2:end));
@@ -168,18 +168,18 @@ aR_init{1} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
 % Second rollout:
 H0 = transl([0.30 0 0]);       % start pose end-effector
 H1 = transl([0.55 0 0]);       
-H2 = transl(0.6, 0.2, 0);
-H3 = transl(0.55, 0, 0);
-[mu01, ~, xe_des, ~, ~, ~, ~, ~, ~]...
+H2 = transl(0.6, 0.4, 0);
+H3 = transl(0.55, 0.2, 0);
+[mu01, ~, xe_des1, ~, ~, ~, ~, ~, ~]...
     = genTrajectory(robot, peg, H0, H1, H2, H3, xhole, xc, T, dt);
-deltaXe_des = diff(xe_des(1:length(t),2:end));
+deltaXe_des = diff(xe_des1(1:length(t),2:end));
 aR_init{2} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
 % robot.plot(mu01(1:robot.n));
 
 initialMu0 = [mu0; mu01];
 
-initPredVar = 0.001^2;                               % initial state variance around mean
-startStateInterval = [0 0 0 0 0 0]';             % interval for which start states may vary [x y z]
+initPredVar = 0.001^2;                              % initial state variance around mean
+startStateInterval = [0 0 0 0 0 0]';                % interval for which start states may vary [x y z]
 mu0Sim = mu0(dyno);                                 % initial mean for simulation
 S0Sim = diag(ones(1,length(dyno))*initPredVar);     % covariance matrix of initial state distribution during simulation 
 
@@ -216,7 +216,7 @@ end
 
 % Environment:
 Kp_env = [1e4, 1e4, 1e4, 0, 0, 0];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
-Kd_env = [1, 1, 1, 0, 0, 0];              %[Ns/m] damping
+Kd_env = [0, 0, 1, 0, 0, 0];              %[Ns/m] damping
 
 % Display Scenario in Console:
 fprintf('\nFinal transformation: \nH^0_n(T) = \n\n');
@@ -252,42 +252,33 @@ plant.startStateInterval = startStateInterval;
 
 %% 4. Set up the policy structure
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
-maxVel = 0.5;         % maximum Cartesian velocity
+maxVel = 0.25;         % maximum Cartesian velocity
 policy.maxU  = [250/2 250/2, dt*maxVel  dt*maxVel];
 policy.minU  = [10    10,   -dt*maxVel -dt*maxVel];
 policy.impIdx = [1, 2]; 			% non-negative indices of policy outputs (saturate + translate)
 policy.refIdx = [3, 4];             % reference indices (only saturate)
+policy.SNR = 100;
 Du = length(policy.maxU);
 translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
 
-% seedMatrix = 1:1:J*length(policy.impIdx);
-% seedMatrix = reshape(seedMatrix,J,[]);
-
 aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 7, 0.2);
 
-nc = 100;
+nc = 25;
 policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
 policy.p.targets = 0.1*randn(nc, length(policy.maxU));                                         % init. policy targets 
 policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]
-    repmat(log([ones(1,length(poli))*1, 1, 0.01]'), 1, length(policy.maxU));
+    repmat(log([ones(1,length(poli))*1, 1, 1/policy.SNR]'), 1, length(policy.maxU));
 
 %% 5. Set up the cost structure
-% cost.fcn = @my_lossSat;                               % cost function
-% cost.gamma = 1;                                       % discount factor
-% cost.width = [0.02 0.05];                             % cost function width
-% cost.angle = plant.angi;                              % index of angle (for cost function)
-% cost.target  = ([xhole(1)] + [0.05])';                % target state
-% cost.losi = [1 2];                                    % relevant indices
-
 cost.fcn   = @my_lossAdd2;                       % cost function
 cost.gamma = 1;                                 % discount factor  =1 for finite horizon
 cost.expl  = -0.25;                             % exploration weight (UCB) smoothes the value function out and simplifies the optimization problem.
 
 % Energy penalty parameters:
 cost.ep  = 0.001;                              % weight
-cost.idx = policy.impIdx;
+idx = [policy.impIdx, policy.refIdx];
 
-nonIdx = find(~ismember(1:Du,cost.idx));
+nonIdx = find(~ismember(1:Du,idx));
 normalizer = (policy.maxU*diag(translVec)).^2;
 quadraticWidth  = diag(normalizer);          % normalization matrix for quadratic ep
 iT = inv(quadraticWidth);
@@ -296,27 +287,25 @@ cost.iT = iT;
 
 cost.sub{1}.fcn     = @lossSat_2dPIH;
 cost.sub{1}.losi    = [1];                        % indicies for saturating cost states
-cost.sub{1}.target  = ([xhole(1)] + [0.05])';   % target state
-cost.sub{1}.weight  = 1;                        % weight of states costs relative to each other.
-cost.sub{1}.width   = 0.1;
+cost.sub{1}.target  = (xhole(1) + [0.05])';   % target state
+cost.sub{1}.width   = 0.05;
 cost.sub{1}.angle   = plant.angi;
-cost.sub{1}.expl       = 0;
 
-cost.sub{2}.fcn     = @my_lossHinge;
-cost.sub{2}.losi 	= 5;                        % indicies for force
-cost.sub{2}.a       = 0.02;                     % target state
-cost.sub{2}.b       = [-5 5];                   % Weight matrix
+cost.sub{2}.fcn     = @lossSat_2dPIH;
+cost.sub{2}.losi    = [5 6];                        % indicies for saturating cost states
+cost.sub{2}.target  = [0 0];   % target state
+cost.sub{2}.width   = 100;
+cost.sub{2}.angle   = plant.angi;
 
-cost.sub{3}.fcn     = @my_lossHinge;
-cost.sub{3}.losi 	= 6;                        % indicies for force
-cost.sub{3}.a       = 0.02;                     % target state
-cost.sub{3}.b       = [-5 5];                   % Weight matrix
-
-% cost.sub{2}.fcn     = @lossSat_2dPIH;
-% cost.sub{2}.losi 	= [5 6];                        % indicies for force
-% cost.sub{2}.target  = [0 0];                        % target state
-% cost.sub{2}.width   = 30;                           % Weight matrix
-% cost.sub{2}.angle   = plant.angi;                   % index of angle (for cost function)
+% cost.sub{2}.fcn     = @my_lossHinge;
+% cost.sub{2}.losi 	= 5;                        % indicies for force
+% cost.sub{2}.a       = 0.02;                     % target state
+% cost.sub{2}.b       = [-1 1];                   % Weight matrix
+% 
+% cost.sub{3}.fcn     = @my_lossHinge;
+% cost.sub{3}.losi 	= 6;                        % indicies for force
+% cost.sub{3}.a       = 0.02;                     % target state
+% cost.sub{3}.b       = [-1 1];                   % Weight matrix
 
 %% 6. Set up the GP dynamics model structure
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions
@@ -332,7 +321,7 @@ compareToFullModel = true;
 %% 7. Parameters for policy optimization
 opt.fh = 1;
 opt.method = 'BFGS';                    % 'BFGS' (default), 'LBFGS' (x>1000), 'CG'
-opt.length = 50;                        % (+): max. number of line searches
+opt.length = 25;                        % (+): max. number of line searches
 opt.MFEPLS = 25;                        % max. number of function evaluations per linesearch
 % opt.MSR = 100;                        % max. slope ratio (default=100)
 

@@ -9,9 +9,9 @@ if max(F1) > 500
 elseif max(dq) > 100
     fprintf('\nsimulation stopped. maximum joint speed reached.\n');
     flag = 1;
-elseif t > 5 && (F1(1) - F0(1) > 15)
-    flag = 1;
-    fprintf('\nsimulation stopped due to force oscillations.\n');
+% elseif t > 5 && abs(F1(1) - F0(1)) < 250
+%     flag = 1;
+%     fprintf('\nsimulation stopped due to force oscillations.\n');
 end
 
 % Mt = ROBOT.maniplty(q','dof',[1 1 0 0 0 0])

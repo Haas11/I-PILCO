@@ -62,10 +62,9 @@ testCost{j} = testCosti;
 trialAcumCost{j+1} = sum(tempCost,1);
 realWorld.mean(j+1) = mean(trialAcumCost{j+1},2);
 realWorld.std(j+1) = std(trialAcumCost{j+1},0,2);   % flag: 0 = n-1, 1=n
-
 if isempty(find(insertSuccess{j+1}==2,2))   % None Success
     scoreCard(j+1) = 0;
-elseif length(find(insertSuccess{j+1}==2,2))==Ntest+1
+elseif all(insertSuccess{j+1}==2)
     scoreCard(j+1) = 2;                 % All Success
 else
     scoreCard(j+1) = 1;                 % Partial Success

@@ -112,7 +112,7 @@ realWorld.std(1) = std(trialAcumCost{1},0,2);   % flag: 0 = n-1, 1=n
 
 if isempty(find(insertSuccess{1}==2,2))   % None Success
     scoreCard(1) = 0;
-elseif length(find(insertSuccess{1}==2,2))==J
+elseif all(insertSuccess{1}==2)
     scoreCard(1) = 2;                 % All Success
 else
     scoreCard(1) = 1;                 % Partial Success

@@ -105,13 +105,13 @@ odei = 1:1:2*n+6;
 augi    = [];                                           % augi  indicies for variables augmented to the ode variables
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
 dyno    = [13 14 19 20 25 31];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
-dyni    = [1 2 3 4];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
-difi    = [1 2 3 4];                              % difi  indicies for training targets that are differences                      (subset of dyno)
-poli    = [1 2 3 4 5];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
-refi    = [1 2 3 4];                                 % indices for which to encode a reference as  prior mean
+dyni    = [1 2 3 4 6];                                  % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
+difi    = [1 2 3 4];                                    % difi  indicies for training targets that are differences                      (subset of dyno)
+poli    = [1 2];                                        % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
+refi    = [1 2 3 4];                                    % indices for which to encode a reference as  prior mean
 REF_PRIOR  = 1;
 
-ref_select = dyno(1:end-1) - 2*n;                    % indices of reference corresponding to dyno    [xe dxe F] (leave as is)
+ref_select = dyno(1:end-1) - 2*n;                       % indices of reference corresponding to dyno    [xe dxe F] (leave as is)
 
 dynoTitles = stateNames(dyno);
 actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]'};%, 'Kp_{rot} [Nm/rad]'};
@@ -122,14 +122,6 @@ N = 50;                            % no. of controller optimizations
 Ntest = 1;                         % no. of roll outs to test controller quality
 J = 1;                             % no. of initial training rollouts
 K = 1;                             % no. of initial states for which we optimize
-colorVec = {'r','b','g','k','m','c','y','r-.','b-.','g-.','k-.','m-.','c-.','y-.',...
-    'r:','b:','g:','k:','m:','c:','y:','r--','b--','g--','k--','m--','c--','y--'};
-colorVec = [colorVec,colorVec];
-iterVec = cell(1,J+N);
-iterVec{1} = 'iter. 1';
-for i=2:J+N
-    iterVec{i} = num2str(i);
-end
 
 % Timing:
 dt = 0.005;             % [s] controller sampling time
@@ -150,7 +142,7 @@ n = robot.n; m = n;
 robot.fast = 1;
 robot.gravity = [0, -9.81, 0];
 
-dynPert = 0.10;          % [%] Perturbation of dynamics during simulation w.r.t ID
+dynPert = 0.15;          % [%] Perturbation of dynamics during simulation w.r.t ID
 fprintf('\nDynamics perturbed by %2.0f percent.\n',dynPert*100);
 perturbedRobot = robot.perturb(dynPert); % perturbed robot model
 perturbedRobotNF = perturbedRobot.nofriction('all');
@@ -200,7 +192,7 @@ if plotting.verbosity > 1
 end
 
 % Environment:
-Kp_env = [5e3, 5e3, 5e3, 0, 0, 0];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
+Kp_env = [1e4, 5e3, 5e3, 0, 0, 0];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
 Kd_env = [1, 1, 0, 0, 0, 0];                %[Ns/m] damping
 fprintf('\nEnvironment stiffness \t= \t %6.2f [N/m]\n', Kp_env(1));
 fprintf('Environment damping \t= \t %6.2f [Ns/m]\n',  Kd_env(1));
@@ -234,24 +226,23 @@ plant.startStateInterval = startStateInterval;
 policy.maxU  = [250 250]./2; policy.minU  = [10 10];
 policy.impIdx = [1 2]; policy.refIdx = [];
 Du = length(policy.maxU);
-
-% Linear Controller:
-policy.fcn = @(policy,m,s)my_mixedConCat(@my_conlin,@my_mixedGSat,policy,m,s);  % linear saturating controller
-policy.p.w = rand(Du,length(poli));
-policy.p.b = rand(Du,1);
-policy.rempap = true;
-
 translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
 
-aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 7, 0.2);
+% Linear Controller:
+% policy.fcn = @(policy,m,s)my_mixedConCat(@my_conlin,@my_mixedGSat,policy,m,s);  % linear saturating controller
+% policy.p.w = rand(Du,length(poli));
+% policy.p.b = rand(Du,1);
+% policy.rempap = true;
 
 % GP Controller:
-% policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
-% nc = 5;
-% policy.p.targets = 0.1*randn(nc, length(policy.maxU));    % init. policy targets 
-% policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
-% policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]
-%     repmat(log([ones(1,length(poli))*1, 1, 0.01]'), 1, length(policy.maxU));
+policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
+nc = 25;
+policy.p.targets = 0.1*randn(nc, length(policy.maxU));    % init. policy targets 
+policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
+policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]
+    repmat(log([ones(1,length(poli))*1, 1, 0.01]'), 1, length(policy.maxU));
+
+aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 7, 0.3);
 
 %% 5. Set up the cost structure
 cost.fcn   = @my_lossAdd2;                       % cost function
@@ -259,37 +250,37 @@ cost.gamma = 1;                                 % discount factor  =1 for finite
 cost.expl  = -0.25;                             % exploration weight (UCB) smoothes the value function out and simplifies the optimization problem.
 
 % Energy penalty parameters:
-cost.ep  = 0.001;                              % weight
-cost.idx = policy.impIdx;
+cost.ep  = 0.01;                              % weight
+idx = policy.impIdx;
 
-nonIdx = find(~ismember(1:Du,cost.idx));
+nonIdx = find(~ismember(1:Du,idx));
 normalizer = (policy.maxU*diag(translVec)).^2;
 quadraticWidth  = diag(normalizer);          % normalization matrix for quadratic ep
 iT = inv(quadraticWidth);
 iT(nonIdx,nonIdx)= 0;    
 cost.iT = iT;
 
-cost.sub{1}.fcn     = @lossSat_2dPIH;
+cost.sub{1}.fcn     = @my_lossSat;
 cost.sub{1}.losi    = [1 2];                        % indicies for saturating cost states
-cost.sub{1}.target  = ([xhole(1:2)] + [0.05 0])';   % target state
+cost.sub{1}.target  = (xhole(1:2) + [0.05 0])';   % target state
 cost.sub{1}.width   = 0.05;
 cost.sub{1}.angle   = plant.angi;
 cost.sub{1}.expl    = 0;
 
 cost.sub{2}.fcn     = @my_lossHinge;
 cost.sub{2}.losi 	= 5;                        % indicies for force
-cost.sub{2}.a       = 0.02;                     % target state
-cost.sub{2}.b       = [-5 5];                   % Weight matrix
-
-cost.sub{3}.fcn     = @my_lossHinge;
-cost.sub{3}.losi 	= 6;                        % indicies for force
-cost.sub{3}.a       = 0.02;                     % target state
-cost.sub{3}.b       = [-5 5];                   % Weight matrix
+cost.sub{2}.a       = 0.01;                     % target state
+cost.sub{2}.b       = [-1 1];                   % Weight matrix
+% 
+% cost.sub{3}.fcn     = @my_lossHinge;
+% cost.sub{3}.losi 	= 6;                        % indicies for force
+% cost.sub{3}.a       = 0.02;                     % target state
+% cost.sub{3}.b       = [-1 1];                   % Weight matrix
 
 %% 6. Set up the GP dynamics model structure
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions
 dynmodel.train  = @my_train;                % function to train dynamics model
-nii             = 250;                      % no. of inducing inputs
+nii             = 300;                      % no. of inducing inputs
 dynmodel.induce = zeros(nii,0,1);           % shared/individual inducing inputs per target dim (sparse GP)
 noisyInputs     = false;                    % if true -> train/regress w/ assumed input noise hyperparams
 inputNoiseSTD   = [ones(1,length(dyni))*0.01^2, ones(1,length(policy.maxU))*1e-10.^2];      % starting estimate for the noisy input GP training
@@ -314,3 +305,12 @@ M = cell(N,1);  Sigma = cell(N,1); Mcon = cell(N,1); Scon = cell(N,1);
 Mfull = cell(N,1); Sfull = cell(N,1);
 insertSuccess = cell(1,N+1);    scoreCard = zeros(1,N+1);
 reference = zeros(H+1,length(dyno));
+
+colorVec = {'r','b','g','k','m','c','y','r-.','b-.','g-.','k-.','m-.','c-.','y-.',...
+    'r:','b:','g:','k:','m:','c:','y:','r--','b--','g--','k--','m--','c--','y--'};
+colorVec = [colorVec,colorVec];
+iterVec = cell(1,J+N);
+iterVec{1} = 'iter. 1';
+for i=2:J+N
+    iterVec{i} = num2str(i);
+end

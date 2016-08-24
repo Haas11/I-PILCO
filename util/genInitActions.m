@@ -28,13 +28,13 @@ elseif type==3
     if nargin > 5
         sig_ratio = varargin{2};
         if nargin > 6
-            th = ones(1,J)*varargin{3};
+            th = ones(1,J)*varargin{3};         % convergence speed
         else
             th = ones(1,J)*0.3;
         end
     else
-        sig_ratio = 6;
-        th = ones(1,J)*0.3;
+        sig_ratio = 6;                          % diffusion ratio
+        th = ones(1,J)*0.3;     
     end
     sig = repmat(policy.maxU(1)*2/sig_ratio(1),J,1);    % spread
     

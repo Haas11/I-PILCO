@@ -16,7 +16,6 @@
 %   dLds  derivative of expected cost wrt. state covariance matrix  [1 x D^2]
 %   S2    variance of cost                                          [1 x  1 ]
 %
-%   ???????? --> add these variances
 %   dSdm            derivative of S wrt input mean                 [1   x   D]
 %   dSds            derivative of S wrt input covariance           [1   x   D^2]
 %   C               inv(S) times input-output covariance           [D   x   1]
