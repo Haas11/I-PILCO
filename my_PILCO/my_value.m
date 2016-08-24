@@ -1,3 +1,4 @@
+
 %% value.m
 % *Summary:* Compute expected (discounted) cumulative cost for a given (set of) initial
 % state distributions
@@ -43,15 +44,15 @@ m = m0; S = S0; L = zeros(1,H);
 poli = plant.poli;
 
 if nargout <= 1                                         % no derivatives required
-        
+    
     if isfield(cost,'ep') && cost.ep ~= 0               % non-zero energy penalty
-        for t = 1:H                    
+        for t = 1:H
             [m, S] = plant.prop(m, S, plant, dynmodel, policy, t);      % get next state
-            [ma, ~, ~] = policy.fcn(policy, m, S);                      % precompute predicted action for cost function
-            L(t) = cost.gamma^t.*cost.fcn(cost, m, S, ma, policy);      % expected discounted cost  w/ energy penalty
+            [ma, sa, ~] = policy.fcn(policy, m, S);                      % precompute predicted action for cost function
+            L(t) = cost.gamma^t.*cost.fcn(cost, m, S, ma, sa);      % expected discounted cost  w/ energy penalty
         end
     else
-        for t = 1:H                                 
+        for t = 1:H
             [m, S] = plant.prop(m, S, plant, dynmodel, policy, t);      % get next state
             L(t) = cost.gamma^t.*cost.fcn(cost, m, S);                  % expected discounted cost
         end
@@ -71,7 +72,7 @@ else                                                                    % otherw
             dmdp = dmdmO*dmOdp + dmdSO*dSOdp + dmdp; 	% (2 a)
             dSdp = dSdmO*dmOdp + dSdSO*dSOdp + dSdp; 	% (2 b)
             
-            [L(t), dLdm, dLdS] = cost.fcn(cost, m, S);                     % predictive cost (1)
+            [L(t), dLdm, dLdS] = cost.fcn(cost, m, S);                     % predictive cost (1) nargin = 3
             L(t) = cost.gamma^t*L(t);                                      % discount
             dp = dp + cost.gamma^t*( dLdm(:)'*dmdp + dLdS(:)'*dSdp )';
             
@@ -81,47 +82,28 @@ else                                                                    % otherw
         % =================================================================
         % Cost w/ energy penalty:
         m_in = m; S_in = S;
-        for t=1:H                                                           % for all time steps in horizon
-            
-            % TODO: CONSIDER TO USE THE ACTION AT PREVIOUS TIMESTEP AS
-            % INPUT TO ENERGY PENALTY.
-            
-            if isfield(cost,'refPen') && cost.refPen
-                % also penalize reference changes
-                idx = [policy.impIdx, policy.refIdx];
-                translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
-            else
-                % only penalize stiffness magnitude
-                idx = policy.impIdx;
-                translVec = ones(size(policy.impIdx)).*2;
-            end
-    
+        iT = cost.iT;
+        for t=1:H                                                           % for all time steps in horizon            
+            % TODO: CONSIDER TO USE THE ACTION AT PREVIOUS TIMESTEP AS INPUT TO ENERGY PENALTY.            
             [m_out, S_out, dmdmO, dSdmO, dmdSO, dSdSO, dmdp, dSdp] = ...
                 plant.prop(m_in, S_in, plant, dynmodel, policy, t);         % get next state
             
             dmdp = dmdmO*dmOdp + dmdSO*dSOdp + dmdp;                        % (2 a) 	[D x P]
             dSdp = dSdmO*dmOdp + dSdSO*dSOdp + dSdp;                        % (2 b) 	[D x P]
             
-    		[ma, ~, ~, dmadm, ~, ~, dmads, ~, ~, madp, ~, ~] = ...
-                policy.fcn(policy, m_out(poli), S_out(poli,poli));          % (recompute) control mean + derivatives
-                        
-            if cost.epType == 2 || (isfield(cost,'refPen') && cost.refPen)
-                Ma_norm = ma(idx)./(policy.maxU(idx).*translVec)';          % normalized relevant actions       [nUi x 1]
-                dLadma = Ma_norm';                                          % derivative for mean squared cost	[1 x nUi]
-            elseif cost.epType == 1
-                dLadma = ones(1,length(idx));                               % derivative for 1-norm cost        [1 x nUi]
-            end
-                    
-            Madp  = madp(idx,:);                                            % derivative of relevant control means w.r.t. policy params  [nUi x P]
-            dLadp = bsxfun(@rdivide,Madp,(policy.maxU(idx)'.*translVec'));  % normalize  [nUi x P]            
-            dLadp = cost.ep*dLadma*dLadp;                           % derivative of energy cost w.r.t. policy params [1 x P] = [1x1][1 x nUi][nUi x P]
-                        
-            [L(t), dLdm, dLdS] = cost.fcn(cost, m_out, S_out, ...           
-            ma, policy, dmadm, dmads, plant);                               % predictive cost (1) 	dLdm = [1 x D], dLdS = [1 x D^2]
+            [ma, sa, ~, dmadm, dsadm, ~, dmads, dsads, ~, dmadp, dsadp, ~] = ...
+                policy.fcn(policy, m_out(poli), S_out(poli,poli));          % (recompute) control mean + derivatives            
+            
+            % Partial Derivatives and Cost:
+            [L(t), dLdm, dLdS] = cost.fcn(cost, m_out, S_out, ...
+                ma, sa, dmadm, dmads, dsadm, dsads, plant);                 % predictive cost (1) 	dLdm = [1 x D], dLdS = [1 x D^2]
             L(t) = cost.gamma^t*L(t);                                       % discounted predicted cost
+                        
+            % Explicit Derivatives:           
+            dLadp = cost.ep*(2*ma'*iT*dmadp + reshape(iT,1,[])*dsadp);
             
             dp = dp + cost.gamma^t*( dLdm(:)'*dmdp + dLdS(:)'*dSdp )'...    % discounted deriv of state  cost w.r.t. policy hyperparams
-                + cost.gamma^t*(dLadp)';                                    % discounted deriv of energy cost w.r.t. policy params
+                + cost.gamma^t*(dLadp)';                                    % discounted (direct) deriv of energy cost w.r.t. policy params since it is directly influenced by it.
             
             dmOdp = dmdp; dSOdp = dSdp;                                     % bookkeeping
             m_in = m_out; S_in = S_out;
@@ -131,4 +113,4 @@ else                                                                    % otherw
 end
 
 J = sum(L);
-dJdp = rewrap(policy.p, dp); % rewrapped hyperparameters [1 x P]
+dJdp = rewrap(policy.p, dp);                                                % rewrapped hyperparameters [1 x P]

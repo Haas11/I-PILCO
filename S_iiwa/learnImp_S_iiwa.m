@@ -32,17 +32,16 @@ fprintf('\nPerforming initial rollouts...\n');
 for jj = 1:J
     
     [xx, yy, realCost{jj}, latent{jj}, rr] = ...
-        my_iiwaRollout(policy, plant, cost, H, Hdes, a_init{jj});
+        my_iiwaRollout(policy, plant, cost, H, Hdes, a_init{jj});    
     realAcumCost(jj) = sum(realCost{jj});
-    rr = rr(:,ref_select);      % filter out the relevant reference dimensions
-    rrr = rr(2:H+1,:);
+    rr = rr(:,ref_select);  rrr = rr(2:H+1,:);
     rrr(:,difi) = rr(2:H+1,difi) - rr(1:H,difi); % dimensions that are differences
     x = [x; xx]; y = [y; yy];   r = [r; rrr]; %#ok<*AGROW>
     
     % determine if rollout successful:
     if size(xx,1) > H-5
         insertSuccess{1}(jj) = 1;  %#ok<*SAGROW> not aborted
-        if mean(abs(latent{1}(end-5:end,dyno(1))-(xhole(1)+0.05))) < 0.01;
+        if mean(abs(latent{1}(end-5:end,dyno(1))-cost.sub{1}.target(1))) < 0.01;
             insertSuccess{1}(jj) = 2;                % succesful insertion
         end
     end
@@ -105,7 +104,7 @@ realWorld.std(1) = std(trialAcumCost{1},0,2);   % flag: 0 = n-1, 1=n
 
 if isempty(find(insertSuccess{1}==2,2))   % None Success
     scoreCard(1) = 0;
-elseif length(find(insertSuccess{1}==2,2))==J
+elseif all(insertSuccess{1}==2)
     scoreCard(1) = 2;                 % All Success
 else
     scoreCard(1) = 1;                 % Partial Success

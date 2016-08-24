@@ -42,7 +42,7 @@
 function [Mnext, Snext, dMdm, dSdm, dMds, dSds, dMdp, dSdp, Mcon, Scon] = ...
     my_propagated(m, s, plant, dynmodel, policy, varargin)
 %% Code
-global diffChecks diffTol gpCheck REF_PRIOR FIRST
+global diffChecks diffTol gpCheck REF_PRIOR TIME_INPUT
 GPgradTypes = {'dMdm','dMds',       'dSdm','dSds',       'dVdm','dVds'};
 
 % persistent prevRef
@@ -55,17 +55,13 @@ if nargin == 6
 else
     t = 0;
 end
-
-if isempty(prevRefVel) || t==1  || FIRST
-        prevRefVel = [zeros(1,length(policy.refIdx)), 0]';
-        prevRefPos = [m(1:length(policy.refIdx)); 0];
-        FIRST = 0;
+if TIME_INPUT
+    m = [m; t];
+    s = [s, zeros(length(s),1)];
+    s = [s; zeros(1,length(s))];
 end
-% if isempty(prevRefPos) || t==1
-% %         prevRefPos = zeros(1,length(policy.refIdx))';
-%         prevRefPos = m(1:length(policy.refIdx));
-% end
 
+% Retreat to only prediction:
 if nargout == 10                                  % just predict, no derivatives
     [Mnext, Snext, Mcon, Scon] = my_propagate(m, s, plant, dynmodel, policy, t);
     dMdm=[]; dSdm=[]; dMds=[]; dSds=[]; dMdp=[]; dSdp=[];

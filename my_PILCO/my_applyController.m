@@ -14,33 +14,26 @@
 % # Save the data
 
 %% 1. Generate trajectory rollout given the current policy
-if isfield(plant,'constraint')
-    HH = maxH;
-else
-    HH = H;
-end
+% TODO: CONSIDER PASSING VARIABLE START STATE BACK AND USING THAT AS IC FOR
+% PREDICTED STATE TRAJECTORY IN PREDCOST.M OR PRED.M
 
 if KUKA
     [xx, yy, realCost{j+J}, latent{j+J}, rr] = ...
-        my_iiwaRollout(policy, plant, cost, HH, Hdes);  % Experiment
-    
+        my_iiwaRollout(policy, plant, cost, H, Hdes);
 else
     [xx, yy, realCost{j+J}, latent{j+J}, rr] = ...
-        my_rollout(mu0, policy, HH, plant, robot);      % Simulation
+        my_rollout(mu0, policy, H, plant, robot); %#ok<*IJCL>
 end
-rr = rr(:,ref_select);      % filter out the relevant reference dimensions
-rrr = rr(2:end,:);
-rrr(:,difi) = rr(2:end,difi) - rr(1:end-1,difi); % dimensions that are differences
-r = [r; rrr];      %#ok<*AGROW> % augment training sets for dynamics model
-x = [x; xx]; y = [y; yy];
-
 realAcumCost(j+J) = sum(realCost{j+J});                 % Accumulated cost
-realAcumCost2{j+J}(1) = sum(realCost{j+J});                 % Accumulated cost
+rr = rr(:,ref_select);  rrr = rr(2:end,:);
+rrr(:,difi) = rr(2:end,difi) - rr(1:end-1,difi);    % dimensions that are differences
+r = [r; rrr];   x = [x; xx];    y = [y; yy]; %#ok<*AGROW>
 
+% determine if rollout aborted, failed or successful:
 lengthDiff = H - size(realCost{j+J},1);
 if lengthDiff == 0
     insertSuccess{j+1}(1) = 1;                         %#ok<*SAGROW> not aborted
-    if abs(mean(latent{j+J}(end-5:end,dyno(1)) - (xhole(1)+0.05))) < 0.01;
+    if mean(abs(latent{j+J}(end-5:end,dyno(1))-cost.sub{1}.target(1))) < 0.01;
         insertSuccess{j+1}(1) = 2;                     % successful insertion
     end
 else
@@ -54,17 +47,17 @@ testLati = cell(1,Ntest);
 testCosti = cell(1,Ntest);
 for i=1:Ntest
     if KUKA
-        [xx, yy, testCosti{i}, testLati{i}, rr] = ...
-            my_iiwaRollout(policy, plant, cost, HH, Hdes);  % Experiment
-        
+        [~, ~, testCosti{i}, testLati{i}, ~] = ...
+            my_iiwaRollout(policy, plant, cost, H, Hdes);
     else
-        [xx, yy, realCost{i}, latent{i}, rr] = ...
-            my_rollout(mu0, policy, HH, plant, robot);      % Simulation
+        [~, ~, testCosti{i}, testLati{i}, ~] = ...
+            my_rollout(mu0, policy, H, plant, robot); %#ok<*IJCL>
     end
+    
     lengthDiff = H-size(testCosti{i},1);
     if lengthDiff==0                           % rollout was completed
         insertSuccess{j+1}(i+1) = 1;
-        if abs(mean(testLati{i}(end-5:end,dyno(1)) - (xhole(1)+0.05))) < 0.01;
+        if mean(abs(testLati{i}(end-5:end,dyno(1))-cost.sub{1}.target(1))) < 0.01;
             insertSuccess{j+1}(i+1) = 2;                     % successful insertion
         end
         
@@ -78,10 +71,9 @@ testCost{j} = testCosti;
 trialAcumCost{j+1} = sum(tempCost,1);
 realWorld.mean(j+1) = mean(trialAcumCost{j+1},2);
 realWorld.std(j+1) = std(trialAcumCost{j+1},0,2);   % flag: 0 = n-1, 1=n
-
 if isempty(find(insertSuccess{j+1}==2,2))   % None Success
     scoreCard(j+1) = 0;
-elseif length(find(insertSuccess{j+1}==2,2))==Ntest+1
+elseif all(insertSuccess{j+1}==2)
     scoreCard(j+1) = 2;                 % All Success
 else
     scoreCard(j+1) = 1;                 % Partial Success
@@ -89,7 +81,8 @@ end
 
 %% verbosity
 if plotting.verbosity > 0
-    if ~ishandle(3)         % Cost plot
+    % Cost During Last Trials
+    if ~ishandle(3)
         figure(3);
     else
         set(0,'CurrentFigure',3);
@@ -97,15 +90,17 @@ if plotting.verbosity > 0
     hold on;
     stairs(1:length(realCost{J+j}),realCost{J+j},'r'); hold on;
     for ii=1:Ntest
-        stairs(1:length(testCost{j}{ii}),testCost{j}{ii},'g');
+        stairs(1:length(testCosti{ii}),testCosti{ii},'g');
         hold on;
     end
     title('Predicted (uncertain) & Rollout (deterministic) Immediate Cost');
     xlabel('Time [s]');     ylabel('Immediate Cost');
     legend('predicted','test','verifications');
+    axis tight;
     drawnow;
     
-    if ~ishandle(6)         % Action plot
+    % Actions over all iterations:
+    if ~ishandle(6)
         figure(6);
     else
         set(0,'CurrentFigure',6);
@@ -118,11 +113,14 @@ if plotting.verbosity > 0
         stairs(1:length(a(:,i)),a(:,i),colorVec{J+j});
         legend(iterVec{1:J+j});
         xlabel('Timestep');     ylabel(actionTitles{i});
+        axis tight
     end
     
+    % COST OVER ALL ITERATIONS:
     run plotCost.m
     
     if plotting.verbosity > 1
+        % GP Model predictions:
         if ~ishandle(4)
             figure(4);
         else
@@ -134,7 +132,13 @@ if plotting.verbosity > 0
             subplot(ceil(ldyno/sqrt(ldyno)),ceil(sqrt(ldyno)),i); hold on;
             
             % Reference:
-            plot(rr(:,i),'k:');
+            if dyno(i)~=stateLength
+                plot(rr(:,i),'k:');
+            end
+            
+            % Sparse Model:
+            errorbar( 0:length(M{j}(i,:))-1, M{j}(i,:), ...
+                2*sqrt(squeeze(Sigma{j}(i,i,:))),'b','AlignVertexCenters','on');
             
             % Full model:
             if compareToFullModel && ~isempty(Mfull{j})
@@ -142,46 +146,55 @@ if plotting.verbosity > 0
                     2*sqrt(squeeze(Sfull{j}(i,i,:))), 'y');
             end
             
-            % Full or Sparse model:
-            errorbar( 0:length(M{j}(i,:))-1, M{j}(i,:), ...
-                2*sqrt(squeeze(Sigma{j}(i,i,:))) );
             
-            % Test trial:
-            for ii=1:Ntest
-                stairs( 0:size(testLat{j}{ii}(:,dyno(i)),1)-1, testLat{j}{ii}(:,indices(dyno(i))), 'g' );        % recorded latent states in multiple robustness test-rollouts
-            end
-            
-            % Model Trial:
+            % Model trial:
             stairs( 0:size(latent{j+J}(:,dyno(i)),1)-1, latent{j+J}(:,indices(dyno(i))),'r');      % recorded latent states in apply_controller roll-out
             
-            % Inducing Inputs:
-            if i <= length(dyni) && numel(dynmodel.induce) ~= 0
-                plot(zeros(nii,1),dynmodel.induce(:,i),'kx');
+            % Test:
+            for ii=1:Ntest
+                stairs( 0:size(testLati{ii}(:,dyno(i)),1)-1, testLati{ii}(:,indices(dyno(i))), 'g' );        % recorded latent states in multiple robustness test-rollouts
             end
+            
+            %             % Inducing inputs Locations:
+            %             if i <= length(dyni) && numel(dynmodel.induce) ~= 0
+            %                 plot(zeros(nii,1),dynmodel.induce(:,i),'kx');
+            %             end
             
             title(dynoTitles{i});
             if i==1
-                if compareToFullModel && numel(dynmodel.induce) ~= 0
-                    if Ntest > 0
-                        legend('Reference','Full Model','Sparse Model','Test','Trial','Inducing Inputs','Location','Best');
-                    else
-                        legend('Reference','Full Model','Sparse Model','Trial','Inducing Inputs','Location','Best');
-                    end
+                if compareToFullModel && ~isempty(Mfull{j})
+                    legend('Reference','Planning Model','Full Model','Data Trial','Test Trials','Location','Best');
                 else
-                    if Ntest > 0
-                        legend('Reference','Full Model','Test','Trial','Location','Best');
-                    else
-                        legend('Reference','Full Model','Trial','Location','Best');
-                    end
+                    legend('Reference','Planning Model','Data Trial','Test Trials','Location','Best');
                 end
             end
             axis tight
+            grid on
+        end
+        drawnow;
+        
+        % Actions during latest rollout:
+        if ~ishandle(11)
+            figure(11);
+        else
+            set(0,'CurrentFigure',11)
+        end
+        clf(11);
+        for i=1:Du       % plot the rollouts on top of predicted error bars
+            subplot(2,2,i); hold on;
+            errorbar( 1:length(Mcon{j}(i,:)), Mcon{j}(i,:), ...
+                2*sqrt(squeeze(Scon{j}(i,i,:))),'r');
+            axis tight
+            grid on
+            xlabel('Time step');    ylabel('Stiffness');
+            title(actionTitles{i});
         end
         drawnow;
         
         if plotting.verbosity > 2
+            % robot animation
             q_sim = latent{j+J}(:,1:robot.n);
-            if ~ishandle(5)         % robot animation
+            if ~ishandle(5)
                 figure(5);
             else
                 set(0,'CurrentFigure',5);

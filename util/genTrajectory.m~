@@ -95,10 +95,10 @@ elseif mode==1
     xe_des   = [t_total, xe_des(1:length(t_total),:)];
     dxe_des  = [t_total, dxe_des(1:length(t_total),:)];
     ddxe_des = [t_total, ddxe_des(1:length(t_total),:)];
-elseif mode==2
+elseif mode==3
     
-    t1 = T/3;
-    t2 = 3*T/5;
+    t1 = T/6;
+    t2 = 3*T/6;
     t3 = 5*T/6;
     t_total     = [0:dt:T]'; %#ok<*NBRAK>
     t_approach  = [0:dt:t1]';
@@ -106,13 +106,8 @@ elseif mode==2
     t_contact2  = (t2:dt:t3)';
     t_rest      = [t3:dt:T]';
     
-    q0 = [-0.0012;
-        0.2596;
-        0.0014;
-        -1.4267;
-        -0.0003;
-        1.4555;
-        0.0002];
+%     q0 = [0; 0.25; 0; -1.43; 0; 1.46; 0];   % [0.45 0 0.4]         
+    q0 = [0; 11.75; 0; -100; 0; 68; 0];     % [0.45 0 0.3]
     
     xe0 = [transl(H0)', tform2quat(H0)];
     dxe0 = zeros(1,7);
@@ -138,8 +133,8 @@ elseif mode==2
     Ttot = cat(3,Tcart1,Tcart2,Tcart3,Tcart4);
     Ttot(1:3,1:3,:) = repmat(initRot,1,1,size(Ttot,3));
     
-    mu0 = [xe0, dxe0, F0]; %[q dq xe dxe Fext t]
-    S0  = diag([0.001*ones(1,7) 0*ones(1,7) 0.1*ones(1,length(F0))].^2); % initial state covariance
+    mu0 = [xe0, dxe0, F0, 0]; %[q dq xe dxe Fext t]
+    S0  = diag([0.001*ones(1,7), 1e-5*ones(1,7) 0.1*ones(1,length(F0)), 1e-5].^2); % initial state covariance
     
     xe_des = [transl(Ttot), tr2rpy(Ttot)];          % extract des position
     dxe_des = [zeros(1,6); diff(xe_des)/dt];        % differentiate for des velocity
@@ -157,13 +152,8 @@ elseif mode==2
     t_contact   = [t1:dt:t2]';
     t_rest      = [t2:dt:T]';
     
-    q0 = [-0.0012;
-        0.2596;
-        0.0014;
-        -1.4267;
-        -0.0003;
-        1.4555;
-        0.0002];
+%     q0 = [0; 0.25; 0; -1.43; 0; 1.46; 0];   % [0.45 0 0.4]         
+    q0 = [0; 11.75; 0; -100; 0; 68; 0];     % [0.45 0 0.3]
     
     xe0 = [transl(H0)', tform2quat(H0)];
     dxe0 = zeros(1,7);

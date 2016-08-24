@@ -71,36 +71,37 @@
 warning('on','all');
 rng(0,'twister');
 format short; format compact;
-global diffChecks REF_PRIOR 
+global diffChecks REF_PRIOR TIME_INPUT
 global diffTol conCheck gpCheck propCheck valueCheck satCheck lossCheck checkFailed
 diffChecks = 0;  diffTol   = 1e-3;  checkFailed = 0;
 conCheck   = 0;  gpCheck   = 0;     propCheck   = 0;    % GP check = very heavy!
 valueCheck = 1;  satCheck  = 0;     lossCheck   = 0;
 stateNames = {'xe_x','xe_y','xe_z','x','y','z','w',...
-    'dxe_x','dxe_y','dxe_z','dx','dy','dz','dw','Fx','Fy','Fz','Tx','Ty','Tz'};
+    'dxe_x','dxe_y','dxe_z','dx','dy','dz','dw','Fx','Fy','Fz','Tx','Ty','Tz','t'};
 
 opt.verbosity = 3;                      % optimization verbosity      [0-3]
 plotting.verbosity = 2;                 % plotting verbosity          [0-3]
 
 %% 1. Define state indices
-KUKA = true;        % boolean to indicate real world experiments
-
-stateLength = 18;
+stateLength = 21;
 indices = 1:1:stateLength;
 n=7;
 odei = 1:1:2*n+6;
 augi    = [];                                           % augi  indicies for variables augmented to the ode variables
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
-dyno    = [1 2 15 16];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
-dyni    = [1 2];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
-difi    = [1 2];                              % difi  indicies for training targets that are differences                      (subset of dyno)
-poli    = [1 2 3 4];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
+dyno    = [1 2 8 9 15 16];                              % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
+dynot   = [dyno, 21];                                     % dyno outputs concatenated with deterministic time
+dyni    = [1 2 3 4 7];                                  % dyni  indicies for inputs to the dynamics model                               (subset of dynot)
+difi    = [1 2 3 4 5 6];                                % difi  indicies for training targets that are differences                      (subset of dynot)
+poli    = [1 2 7];                                      % poli  indicies for variables that serve as inputs to the policy               (subset of dynot)
 
+KUKA = true;        % boolean to indicate real world experiments
+TIME_INPUT = 1;
 REF_PRIOR  = 1;
-refi    = [1 2 3];                                 % indices for which to encode a reference as  prior mean
+refi    = [1 2 3 4];                                 % indices for which to encode a reference as  prior mean
 ref_select = dyno;                          % indices of reference corresponding to dyno    [xe dxe F]
 
-dynoTitles = stateNames(indices(dyno));
+dynoTitles = stateNames(dyno);
 actionTitles = {'Kp_{x}','Kp_{y}'};
 
 %% 2. Set up the scenario
@@ -136,7 +137,7 @@ Hdes = Hd;
 
 initPredVar = 1e-4;
 startStateInterval = [0 0 0 0 0 0]';                                        % interval for which start states may vary [x y z]
-mu0Sim = mu0(indices(dyno));
+mu0Sim = mu0(dyno);
 S0Sim = S0(dyno,dyno);
 
 if plotting.verbosity > 1
@@ -183,36 +184,55 @@ plant.indices = indices;
 %% 4. Set up the policy structure
 % GP Controller:
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
-nc = 10;
-policy.maxU  = [250 250]./2; policy.minU  = [5 5];
+nc = 25;
+policy.maxU  = [500 500]./2; policy.minU  = [5 5];
 policy.impIdx = [1 2]; policy.refIdx = [];
-Du = length(policy.maxU);
-
 policy.SNR = 100;
-policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
-policy.p.targets = 0.1*randn(nc, length(policy.maxU));                                         % init. policy targets 
-policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]
+
+Du = length(policy.maxU);
+translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
+a = repmat(mu0(dynot(poli)),nc,1); 
+b = repmat([xhole(poli(1:2)), T],nc,1);
+
+% policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))), nc)';                % policy pseudo inputs   [ nc  x  nU]
+policy.p.inputs = a + (b-a).*rand(nc,length(poli));
+policy.p.targets = randn(nc, length(policy.maxU));                                         % init. policy targets 
+policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  nU ]
     repmat(log([ones(1,length(poli))*1, 1, 1/policy.SNR]'), 1, length(policy.maxU));
 
 a_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 6);     % 1=gaussian, 2=uniform, 3=orhnstein-uhlenbeck
 
 %% 5. Set up the cost structure
-cost.fcn   = @my_lossAdd;                     % cost function
+cost.fcn   = @my_lossAdd2;                     % cost function
 cost.gamma = 1;                               % discount factor  =1 for finite horizon
 cost.expl  = -0.25;                           % exploration parameter (UCB) smoothes the value function out and simplifies the optimization problem.
-cost.ep    = 0.001;                           % energy penalty
-cost.epType = 2;
 
-cost.sub{1}.fcn     = @lossSat_2dPIH;
-cost.sub{1}.losi    = [1 2];                            % indicies for saturating cost states
-cost.sub{1}.target  = [0.75 0.125];                      % target state  xe=[0.75 0.125 0.095]
+% Energy penalty parameters:
+cost.ep  = 0.01;                              % weight
+idx = policy.impIdx;
+nonIdx = find(~ismember(1:Du,idx));
+normalizer = (policy.maxU*diag(translVec)).^2;
+quadraticWidth  = diag(normalizer);          % normalization matrix for quadratic ep
+iT = inv(quadraticWidth);
+iT(nonIdx,nonIdx)= 0;    
+cost.iT = iT;
+
+cost.sub{1}.fcn     = @my_lossSat;
+cost.sub{1}.losi    = 1;                            % indicies for saturating cost states
+cost.sub{1}.target  = 0.75;                      % target state  xe=[0.75 0.125 0.095]
 cost.sub{1}.width   = 0.1;
 cost.sub{1}.angle   = plant.angi;
 
-cost.sub{2}.fcn     = @lossSat_2dPIH;
-cost.sub{2}.losi    = [4 5 6];                            % indicies for saturating cost states
-cost.sub{2}.target  = [0 0 0];           % target state
-cost.sub{2}.width   = 20;
+cost.sub{1}.fcn     = @my_lossSat;
+cost.sub{1}.losi    = 2;                           % indicies for saturating cost states
+cost.sub{1}.target  = 0.125;                      % target state  xe=[0.75 0.125 0.095]
+cost.sub{1}.width   = 0.1;
+cost.sub{1}.angle   = plant.angi;
+
+cost.sub{2}.fcn     = @my_lossSat;
+cost.sub{2}.losi    = [5 6];                            % indicies for saturating cost states
+cost.sub{2}.target  = [0 0];           % target state
+cost.sub{2}.width   = 15;
 cost.sub{2}.angle   = plant.angi;
 
 %% 6. Set up the GP dynamics model structure
@@ -222,7 +242,7 @@ nii             = 300;                      % no. of inducing inputs
 dynmodel.induce = zeros(nii,0,1);           % shared/individual inducing inputs per target dim (sparse GP)
 noisyInputs     = false;                    % if true -> train/regress w/ assumed input noise hyperparams
 inputNoiseSTD   = [ones(1,length(dyno))*0.01^2, ones(1,length(policy.maxU))*1e-10.^2];      % starting estimate for the noisy input GP training
-dynmodel.parallel = true;                  % train individual target dimensions in parellel
+dynmodel.parallel = false;                  % train individual target dimensions in parellel
 dynmodel.full   = true;
 compareToFullModel = true;                  % Computes the state trajectory of the full model for comparison to sparse approximation
 trainOpt        = [200 300];                % max. number of line searches [full, sparse]

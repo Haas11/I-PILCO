@@ -111,7 +111,7 @@ handles.config.Mode.CartesianStiffness.Stiffness.C = 150;
 
 handles.config.Mode.CartesianDamping.Damping.X = 0.7;
 handles.config.Mode.CartesianDamping.Damping.Y = 0.7;
-handles.config.Mode.CartesianDamping.Damping.Z = 0.7;
+handles.config.Mode.CartesianDamping.Damping.Z = 1;
 handles.config.Mode.CartesianDamping.Damping.A = 0.7;
 handles.config.Mode.CartesianDamping.Damping.B = 0.7;
 handles.config.Mode.CartesianDamping.Damping.C = 0.7;

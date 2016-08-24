@@ -18,30 +18,29 @@ function [x, y, L, latent, r] = my_iiwaRollout(policy, plant, cost, H, Href, ini
 
 
 %% Inits
+global TIME_INPUT
 if nargin > 5
     initialRollout = true;  % precomputed stiffness trajectory
 else
     initialRollout = false;
 end
-
+if TIME_INPUT
+    dyno = [plant.dyno, plant.indices(end)];
+else
+    dyno = plant.dyno;
+end
 poli = plant.poli;
-dyno = plant.dyno;
 
-nX = 7+7+6;                 % number of states = xe + dxe + F
+nX = 7+7+6+1;                 % number of states = xe + dxe + F +t
 nU = length(policy.maxU);   % number of actions
-
-x = zeros(H+1, nX);
-a = zeros(H,nU);
-L = zeros(H,1);
-r = zeros(H,nX);
-
-pose1Send = false;
-pose2Send = false;
-pose3Send = false;
+x = zeros(H+1,nX);
+a = zeros(H,  nU);
+L = zeros(H,  1);
+r = zeros(H,  nX);
 
 % Initialize the ROS infrastructure:
 bufferSize = 1;                     % number of messages to ho
-relativeVelocity = 0.1;             % [%] ratio of full capacity
+relativeVelocity = 0.25;             % [%] ratio of full capacity
 mode = 1;                           % cartesian impedance
 tool_frame = 'peg_link_ee_kuka';    % frame used for pose commands
 handles = initROSiiwa(bufferSize, plant.dt, relativeVelocity, 'slip', tool_frame, mode);
@@ -89,18 +88,18 @@ try
     send(handles.pubCartesianPose, poseCommandMsg);
     
     %% Perform Rollout
-    validAnswer = false;
-    while ~validAnswer
-        reply = input('\nReady to start rollout? [y/n]...','s');
-        beep;
-        if strcmpi(reply,'y')
-            validAnswer = true;
-        elseif strcmpi(reply,'n')
-            error('Rollout Aborted by User');
-        else
-            warning('please hit "y" or "n"');
-        end
-    end
+%     validAnswer = false;
+%     while ~validAnswer
+%         reply = input('\nReady to start rollout? [y/n]...','s');
+%         beep;
+%         if strcmpi(reply,'y')
+%             validAnswer = true;
+%         elseif strcmpi(reply,'n')
+%             error('Rollout Aborted by User');
+%         else
+%             warning('please hit "y" or "n"');
+%         end
+%     end
     
     fprintf('Starting rollout in...\n');
     pause(1);
@@ -120,6 +119,8 @@ try
         [time(i), state] = readRobotState(handles, startTime, [0 0 1 1], 'QUAT');        
         x(i,1:length(state.CartesianPose)) = state.CartesianPose; 
         x(i,length(state.CartesianPose)*2+1:length(state.CartesianPose)*2+6) = state.CartesianWrench;
+%         x(i,end) = i*plant.dt;
+        x(i,end) = time(i);
         
         % compute stiffness values
         if initialRollout
@@ -130,7 +131,7 @@ try
         
         handles.config.Mode.CartesianStiffness.Stiffness.X = a(i,1);    % TODO: change for different action dimensionality!
         handles.config.Mode.CartesianStiffness.Stiffness.Y = a(i,2);
-        handles.config.Mode.CartesianStiffness.Stiffness.Z = 100;
+        handles.config.Mode.CartesianStiffness.Stiffness.Z = 150;
 %         handles.config.Mode.CartesianStiffness.Stiffness.A = 250;
 %         handles.config.Mode.CartesianStiffness.Stiffness.B = 250;
 %         handles.config.Mode.CartesianStiffness.Stiffness.C = 250;
@@ -217,11 +218,19 @@ disp(handles.r.statistics)
 % [~, cartVelocity] = gradient(filtPose,plant.dt);
 
 % non-filtered velocity:
-[~,cartVelocity] = gradient(x(:,1:length(state.CartesianPose)),plant.dt);
+[~,cartVelocity] = gradient(x(:,1:length(state.CartesianPose)), plant.dt);
 x(:,length(state.CartesianPose)+1:length(state.CartesianPose)*2) = cartVelocity;
 
+% Reference Velocities:
+[~,refVelocity] = gradient(r(:,1:length([posCommand', quatCommand])), plant.dt);
+r(:,length([posCommand', quatCommand])+1:length([posCommand', quatCommand])*2) = refVelocity;
+
+% Concatenate states and reference with absolute time:
+t = (plant.dt:plant.dt:H*plant.dt+plant.dt)';
+r = [r, t];
+
 for i=1:H
-    L(i,1) = cost.fcn(cost, x(i,dyno), zeros(length(dyno)), a(i,:)', policy);    % compute rollout cost w/ energy penalty
+    L(i,1) = cost.fcn(cost, x(i,dyno), zeros(length(dyno)), a(i,:)', zeros(size(a,2)));    % compute rollout cost w/ energy penalty
 end
 L = L(1:H,1);               % Cost
 

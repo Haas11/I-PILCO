@@ -25,14 +25,15 @@ if j>1, preHyp = dynmodel.hyp; end %#ok<*IJCL>
 Du = length(policy.maxU);
 Da = length(plant.angi); % no. of ctrl and angles
 
-% Inputs:
-xaug = [x(:,dyno) x(:,end-Du-2*Da+1:end-Du)];     % x augmented with angles
-dynmodel.inputs = [xaug(:,dyni) x(:,end-Du+1:end)];     % use dyni and ctrl
 
+% Inputs:
+xaug = [x(:,dynot) x(:,end-Du-2*Da+1:end-Du)];     % x augmented with angles
 % Targets:
 state_target = y(:,dyno);                                           % x_{t+1}     [H x nX]
 state_target(:,difi) = state_target(:,difi) - x(:,dyno(difi));      % delta_t   [H x nX]
-dynmodel.targets = state_target;                                    % prior mean = 0
+
+dynmodel.inputs = [xaug(:,dyni) x(:,end-Du+1:end)];     % use dyni and ctrl
+dynmodel.targets = state_target;
         
 if REF_PRIOR    % prior mean = reference    
         dynmodel.targets(:,refi) = dynmodel.targets(:,refi) - r(:,refi);   % targets with reference prior mean  

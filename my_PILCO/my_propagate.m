@@ -32,7 +32,7 @@
 
 function [Mnext, Snext, Mcon, Scon] = my_propagate(m, s, plant, dynmodel, policy, varargin)
 %% Code
-global diffChecks diffTol gpCheck REF_PRIOR FIRST
+global diffChecks diffTol gpCheck REF_PRIOR TIME_INPUT
 persistent prevRefVel prevRefPos
 
 if nargin == 6
@@ -41,10 +41,10 @@ else
     t = 0;
 end
 
-if isempty(prevRefVel) || t==1  || FIRST
-    prevRefVel = [zeros(1,length(policy.refIdx)), 0]';
-    prevRefPos = [m(1:length(policy.refIdx)); 0];
-    FIRST = 0;          % TODO: reset somehwere!
+if TIME_INPUT
+    m = [m; t];
+    s = [s, zeros(length(s),1)];
+    s = [s; zeros(1,length(s))];
 end
 
 % extract important indices from structures

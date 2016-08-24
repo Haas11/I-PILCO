@@ -38,8 +38,8 @@ poli = plant.poli;
 
 % for each time step, compute the expected cost and its variance
 for h = 1:H
-  [ma, ~, ~] = policy.fcn(policy, M(poli,h), S(poli,poli,h));
-  [L(h), ~, ~, SL(h)]  = cost.fcn(cost, M(:,h), S(:,:,h), ma, policy);
+  [ma, sa, ~] = policy.fcn(policy, M(poli,h), S(poli,poli,h));
+  [L(h), ~, ~, SL(h)]  = cost.fcn(cost, M(:,h), S(:,:,h), ma, sa);
 end
 
 sL = sqrt(SL);                                         % standard deviation

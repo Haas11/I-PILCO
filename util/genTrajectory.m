@@ -133,8 +133,8 @@ elseif mode==3
     Ttot = cat(3,Tcart1,Tcart2,Tcart3,Tcart4);
     Ttot(1:3,1:3,:) = repmat(initRot,1,1,size(Ttot,3));
     
-    mu0 = [xe0, dxe0, F0]; %[q dq xe dxe Fext t]
-    S0  = diag([0.001*ones(1,7) 0*ones(1,7) 0.1*ones(1,length(F0))].^2); % initial state covariance
+    mu0 = [xe0, dxe0, F0, 0]; %[q dq xe dxe Fext t]
+    S0  = diag([1e-3*ones(1,7), 1e-5*ones(1,7) 0.1*ones(1,length(F0)), 1e-5].^2); % initial state covariance
     
     xe_des = [transl(Ttot), tr2rpy(Ttot)];          % extract des position
     dxe_des = [zeros(1,6); diff(xe_des)/dt];        % differentiate for des velocity
