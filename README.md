@@ -17,11 +17,16 @@ Additionally required:
 
 - SIMULINK
 
-- Robotics Toolbox by Peter Corke   (v9)
+- Robotics Toolbox by Peter Corke   (v9.10)
 http://petercorke.com/Robotics_Toolbox.html
 
 - PILCO Toolbox by Rasmussen & Deisenroth   (v0.9)
 http://mlg.eng.cam.ac.uk/pilco/
+
+- SDE Tools
+https://github.com/horchler/SDETools
+
+- 
 
 Optional:
 - Double Precision Toolbox
