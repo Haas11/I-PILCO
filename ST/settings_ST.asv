@@ -29,32 +29,33 @@
 %  1  theta1         angle first link
 %  2  theta2         angle second link
 %  3  theta3         angle third link
-%  4  theta4        
-%  5  theta5        
-%  6  theta6        
 
-%  7-13             angular velocities of links
+%  4  dtheta1        angular velocity of 1st pendulum
+%  5  dtheta2        angular velocity of 2nd pendulum
+%  6  dtheta3        angular velocity of 2nd pendulum
 
-%  13  X              x-position end-effector in world frame
-%  14  Y              y-position end-effector in world frame
-%  15  Z              z-position end-effector in world frame
-% 16  Alpha
-% 17  Gamma
-% 18  Phi            angle around z
+%  7  X              x-position end-effector in world frame
+%  8  Y              y-position end-effector in world frame
+%  9  Z              z-position end-effector in world frame
+% 10  Alpha
+% 11  Gamma
+% 12  Phi            angle around z
 
-% 19  dX             x-velocity end-effector in world frame
-% 20  dY             y-velocity end-effector in world frame
-% 21  dZ             z-velocity end-effector in world frame
-% 22  dAlpha         Alpha-angular velocity  in world frame
-% 23  dGamma         Gamma-angular velocity  in world frame
-% 24  dPhi           Phi-angular velocity    in world frame
+% 13  dX             x-velocity end-effector in world frame
+% 14  dY             y-velocity end-effector in world frame
+% 15  dZ             z-velocity end-effector in world frame
+% 16  dAlpha         Alpha-angular velocity  in world frame
+% 17  dGamma         Gamma-angular velocity  in world frame
+% 18  dPhi           Phi-angular velocity    in world frame
 
-% 25  Fx             Cartesian x-force in world frame
-% 26  Fy             Cartesian y-force in world frame
-% 27  Fz             Cartesian z-force in world frame
-% 28  Fa             Cartesian alpha torque in world frame
-% 29  Fg             Cartesian gamma torque in world frame
-% 30  Fp             Cartesian phi   torque in world frame
+% 19  Fx             Cartesian x-force in world frame
+% 20  Fy             Cartesian y-force in world frame
+% 21  Fz             Cartesian z-force in world frame
+% 22  Fa             Cartesian alpha torque in world frame
+% 23  Fg             Cartesian gamma torque in world frame
+% 24  Fp             Cartesian phi   torque in world frame
+
+% 25 t               time vector
 
 % 25  Kp_x           Cartesian stiffness in x
 % 26  Kp_y           Cartesian stiffness in y
@@ -77,12 +78,12 @@
 warning('on','all');
 rng(0,'twister');
 format short; format compact;
-global diffChecks REF_PRIOR vert fac
+global diffChecks REF_PRIOR 
 global diffTol conCheck gpCheck propCheck valueCheck satCheck lossCheck checkFailed
 diffChecks = 0;  diffTol   = 1e-3;  checkFailed = 0;
 conCheck   = 0;  gpCheck   = 0;     propCheck   = 0;    % GP check = very heavy!
 valueCheck = 1;  satCheck  = 0;     lossCheck   = 0;
-stateNames = {'theta1','theta1','theta1','dtheta1','dtheta1','dtheta1','dtheta1','dtheta1','dtheta1','dtheta1','dtheta1','dtheta1',...
+stateNames = {'theta1','theta1','theta1','dtheta1','dtheta1','dtheta1',...
     'xe_x','xe_y','xe_z','alpha','gamma','phi','dxe_x','dxe_y','dxe_z',...
     'dalpha','dgamma','dphi','Fx','Fy','Fz','Tx','Ty','Tz','t'};
 
@@ -95,18 +96,18 @@ if diffChecks
 end
 
 opt.verbosity = 3;                      % optimization verbosity      [0-3]
-plotting.verbosity = 2;                 % plotting verbosity          [0-3]
+plotting.verbosity = 3;                 % plotting verbosity          [0-3]
 
 %% 1. Define state indices
-stateLength = 30;
+stateLength = 24;
 indices = 1:1:stateLength;
-n=6;
+n=3;
 odei = 1:1:2*n+6;
 augi    = [];                                           % augi  indicies for variables augmented to the ode variables
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
-dyno    = [13 14 19 20 25 26];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
+dyno    = [7 8 13 14 19 20];                            % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
 dyni    = [1 2 3 4];                                    % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
-difi    = [1 2 3 4 5 6];                                % difi  indicies for training targets that are differences                      (subset of dyno)
+difi    = [1 2 3 4 5 6];                                    % difi  indicies for training targets that are differences                      (subset of dyno)
 poli    = [1 2];                                        % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
 
 REF_PRIOR  = 0;                                         % encode prior reference mean?
@@ -118,11 +119,20 @@ actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]', 'ref_x','ref_y'};%, 'Kp_{rot} 
 
 %% 2. Set up the scenario
 % General:
-T = 10.0;                           % [s] Rollout time
+T = 10.0;                % [s] Rollout time
 N = 30;                            % no. of controller optimizations
-Ntest = 2;                         % no. of roll outs to test controller quality
-J = 1;                             % no. of initial training rollouts
+Ntest = 3;                         % no. of roll outs to test controller quality
+J = 2;                             % no. of initial training rollouts
 K = 1;                             % no. of initial states for which we optimize
+
+colorVec = {'r','b','g','k','m','c','y','r-.','b-.','g-.','k-.','m-.','c-.','y-.',...
+    'r:','b:','g:','k:','m:','c:','y:','r--','b--','g--','k--','m--','c--','y--'};
+colorVec = [colorVec,colorVec];
+iterVec = cell(1,J+N);
+iterVec{1} = 'iter. 1';
+for i=2:J+N
+    iterVec{i} = num2str(i);
+end
 
 % Timing constraints:
 dt = 0.01;              % [s] controller sampling time
@@ -131,55 +141,56 @@ t_pilco = (0:dt_pilco:T)';
 t = 0:dt:T;
 H = ceil(T/dt_pilco);              % no. of timesteps per rollout
 
-close all
 % Robot model:
-fprintf('\nInitializing robot model');
-run mdl_puma560.m
-robot = p560;
-% robot = stanf;
-robot.tool = transl([0 0 0]);
-robot.plotopt = {'jaxes','delay',dt_pilco*2,'trail','y--','zoom',1,'scale',0.4,'arrow','xyz','workspace',[-1 1 -1 1 -1 1]};
-robot.plotopt3d = {'jaxes','delay',dt_pilco,'scale',0.4,'xyz','arrow','workspace',[-1 1 -1 1 -1 1]};
-n = robot.n; m = n;
-robot.fast = 1;
-robot.gravity = [0, -9.81, 0];
-
-dynPert = 0.15;          % [%] Perturbation of dynamics during simulation w.r.t ID
-fprintf('\nDynamics perturbed by %2.0f percent.\n',dynPert*100);
-perturbedRobot = robot.perturb(dynPert); % perturbed robot model
-perturbedRobotNF = perturbedRobot.nofriction('all');
-perturbedRobot.gravity = robot.gravity;
-perturbedRobotNF.gravity = robot.gravity;
+dynPert = 0.2;
+run init_3Lbot.m
 
 % Spatial constraints:
-peg = 0;    % mode
-xhole = [0.5, 0.3, 0];   % center hole location [x, y, phi/z]
-xc    = [0.45, 0.6, 0.6, 10, 10, 10]';  % [m] environment constraint location
+mode = 0;    % mode
+xhole = [0.5, 0.1, 0];   % center hole location [x, y, phi/z]
+xc    = [0.45, 0.45, 0.40, 10, 10, 10]';  % [m] environment constraint location
 
-H0   = transl([0.30 0 0]);      % start pose end-effector
-H1   = transl([0.55 0.4 0]);   
-H2 = transl(0.6, 0.2, 0);
-H3 = transl(0.6, 0.3, 0);
+if ~ishandle(5)         % robot animation
+    figure(5);
+else
+    set(0,'CurrentFigure',5);
+end
+% First rollout:
+H0   = transl([0.3 0 0]);      % start pose end-effector (nominal start pose)
+H1   = transl([0.5 0 0]);
+H2 = transl(0.55, 0.15, 0);
+H3 = transl(0.6, 0.05, 0);
 [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td]...
-    = genTrajectory(robot, peg, H0, H1, H2, H3, xhole, xc, T, dt);
+    = genTrajectory(robot, mode, H0, H1, H2, H3, xhole, xc, T, dt);
 deltaXe_des = diff(xe_des(1:length(t),2:end));
 aR_init{1} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
+robot.plot(mu0(1:robot.n));
 
 % Second rollout:
-H0 = transl([0.30 0 0]);       % start pose end-effector
-H1 = transl([0.55 0 0]);       
-H2 = transl(0.6, 0.4, 0);
-H3 = transl(0.55, 0.2, 0);
-[mu01, ~, xe_des1, ~, ~, ~, ~, ~, ~]...
-    = genTrajectory(robot, peg, H0, H1, H2, H3, xhole, xc, T, dt);
-deltaXe_des = diff(xe_des1(1:length(t),2:end));
+H0 = transl([0.3 0 0]);       % start pose end-effector
+H1 = transl([0.5 0.2 0]);       
+H2 = transl(0.6, 0.05, 0);
+H3 = transl(0.55, 0.15, 0);
+[mu01, ~, xe_des, ~, ~, ~, ~, ~, ~]...
+    = genTrajectory(robot, mode, H0, H1, H2, H3, xhole, xc, T, dt);
+deltaXe_des = diff(xe_des(1:length(t),2:end));
 aR_init{2} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
-% robot.plot(mu01(1:robot.n));
+robot.plot(mu01(1:robot.n));
 
-initialMu0 = [mu0; mu01];
+% Third rollout:
+H0 = transl([0.35 0.1 0]);       % start pose end-effector
+H1 = transl([0.5 0.15 0]);       
+H2 = transl(0.6, 0.05, 0);
+H3 = transl(0.55, 0.15, 0);
+[mu02, ~, xe_des, ~, ~, ~, ~, ~, ~]...
+    = genTrajectory(robot, mode, H0, H1, H2, H3, xhole, xc, T, dt);
+deltaXe_des = diff(xe_des(1:length(t),2:end));
+aR_init{3} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
 
-initPredVar = 0.001^2;                              % initial state variance around mean
-startStateInterval = [0 0 0 0 0 0]';                % interval for which start states may vary [x y z]
+initialMu0 = [mu0; mu01; mu02];
+
+initPredVar = 0.001^2;                               % initial state variance around mean
+startStateInterval = [0 0 0 0 0 0]';             % interval for which start states may vary [x y z]
 mu0Sim = mu0(dyno);                                 % initial mean for simulation
 S0Sim = diag(ones(1,length(dyno))*initPredVar);     % covariance matrix of initial state distribution during simulation 
 
@@ -202,21 +213,11 @@ if plotting.verbosity > 1
     ylabel('Acceleration [m/s/s]'); xlabel(strcat('Time steps   (d_t = ',num2str(dt), ')'));
     axis tight
     grid on
-    if plotting.verbosity > 2
-        if ~ishandle(5)         % robot animation
-            figure(5);
-            %     set(gcf,'units','normalized','outerposition',[0.1 0.1 0.9 0.9])
-        else
-            set(0,'CurrentFigure',5);
-        end
-        patch('Vertices',vert,'Faces',fac,'FaceVertexCData',hsv(6),'FaceColor','flat');
-        robot.plot(mu0(1:robot.n));
-    end
 end
 
 % Environment:
-Kp_env = [1e4, 1e4, 1e4, 0, 0, 0];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
-Kd_env = [0, 0, 1, 0, 0, 0];              %[Ns/m] damping
+Kp_env = [1e4, 5e3 1e4, 0, 0, 0];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
+Kd_env = [1, 50, 1, 0, 0, 0];              %[Ns/m] damping
 
 % Display Scenario in Console:
 fprintf('\nFinal transformation: \nH^0_n(T) = \n\n');
@@ -229,9 +230,8 @@ disp(xhole)
 
 
 %% 3. Set up the plant structure
-outputNoiseSTD = ones(1,length(odei))*deg2rad(0.1).^2;                          % noise added to odei indicies in simulation
-outputNoiseSTD(1,robot.n+1:2*robot.n) = deg2rad(0.1).^2;
-outputNoiseSTD(1,end-5:end) = 0.1^2;
+outputNoiseSTD = ones(1,length(odei))*0.001.^2;                          % noise added to odei indicies in simulation
+outputNoiseSTD(1,end-5:end) = 0.05^2;
 
 plant.noise = diag(outputNoiseSTD);
 plant.dt = dt_pilco;
@@ -270,42 +270,27 @@ policy.p.hyp = ...                                                              
     repmat(log([ones(1,length(poli))*1, 1, 1/policy.SNR]'), 1, length(policy.maxU));
 
 %% 5. Set up the cost structure
-cost.fcn   = @my_lossAdd2;                       % cost function
+cost.fcn   = @my_lossAdd;                       % cost function
 cost.gamma = 1;                                 % discount factor  =1 for finite horizon
 cost.expl  = -0.25;                             % exploration weight (UCB) smoothes the value function out and simplifies the optimization problem.
 
 % Energy penalty parameters:
-cost.ep  = 0.001;                              % weight
-idx = [policy.impIdx, policy.refIdx];
-
-nonIdx = find(~ismember(1:Du,idx));
-normalizer = (policy.maxU*diag(translVec)).^2;
-quadraticWidth  = diag(normalizer);          % normalization matrix for quadratic ep
-iT = inv(quadraticWidth);
-iT(nonIdx,nonIdx)= 0;    
-cost.iT = iT;
+cost.ep     = 0.001;                              % weight
+cost.refPen = false;                            % energy penalty on reference actions
+cost.epType = 2;                                % energy cost function type: 1=1-norm, 2=mean squared
 
 cost.sub{1}.fcn     = @lossSat_2dPIH;
 cost.sub{1}.losi    = [1];                        % indicies for saturating cost states
-cost.sub{1}.target  = (xhole(1) + [0.05])';   % target state
+cost.sub{1}.target  = ([xhole(1)] + [0.05])';   % target state
+cost.sub{1}.weight  = [1];                        % weight of states costs relative to each other.
 cost.sub{1}.width   = 0.05;
 cost.sub{1}.angle   = plant.angi;
 
 cost.sub{2}.fcn     = @lossSat_2dPIH;
-cost.sub{2}.losi    = [5 6];                        % indicies for saturating cost states
-cost.sub{2}.target  = [0 0];   % target state
-cost.sub{2}.width   = 100;
-cost.sub{2}.angle   = plant.angi;
-
-% cost.sub{2}.fcn     = @my_lossHinge;
-% cost.sub{2}.losi 	= 5;                        % indicies for force
-% cost.sub{2}.a       = 0.02;                     % target state
-% cost.sub{2}.b       = [-1 1];                   % Weight matrix
-% 
-% cost.sub{3}.fcn     = @my_lossHinge;
-% cost.sub{3}.losi 	= 6;                        % indicies for force
-% cost.sub{3}.a       = 0.02;                     % target state
-% cost.sub{3}.b       = [-1 1];                   % Weight matrix
+cost.sub{2}.losi 	= [5 6];                        % indicies for force
+cost.sub{2}.target  = [0 0];                        % target state
+cost.sub{2}.width   = 20;                           % Weight matrix
+cost.sub{2}.angle   = plant.angi;                   % index of angle (for cost function)
 
 %% 6. Set up the GP dynamics model structure
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions
@@ -314,14 +299,14 @@ nii             = 300;                      % no. of inducing inputs
 dynmodel.induce = zeros(nii,0,1);% shared/individual inducing inputs per target dim (sparse GP)
 noisyInputs     = false;                    % if true -> train/regress w/ assumed input noise hyperparams
 inputNoiseSTD   = [ones(1,length(dyno))*0.005^2, ones(1,length(policy.maxU))*1e-10.^2];      % starting estimate for the noisy input GP training
-dynmodel.parallel = false;                  % train individual target dimensions in parellel
+dynmodel.parallel = true;                  % train individual target dimensions in parellel
 trainOpt        = [200 300];                % max. number of line searches [full, sparse]
 compareToFullModel = true;
 
 %% 7. Parameters for policy optimization
 opt.fh = 1;
 opt.method = 'BFGS';                    % 'BFGS' (default), 'LBFGS' (x>1000), 'CG'
-opt.length = 25;                        % (+): max. number of line searches
+opt.length = 50;                        % (+): max. number of line searches
 opt.MFEPLS = 25;                        % max. number of function evaluations per linesearch
 % opt.MSR = 100;                        % max. slope ratio (default=100)
 
@@ -336,11 +321,8 @@ Mfull = cell(N,1); Sfull = cell(N,1);
 insertSuccess = cell(1,N+1);    scoreCard = zeros(1,N+1);
 reference = zeros(H+1,length(dyno));
 
-colorVec = {'r','b','g','k','m','c','y','r-.','b-.','g-.','k-.','m-.','c-.','y-.',...
-    'r:','b:','g:','k:','m:','c:','y:','r--','b--','g--','k--','m--','c--','y--'};
-colorVec = [colorVec,colorVec];
-iterVec = cell(1,J+N);
-iterVec{1} = 'iter. 1';
-for i=2:J+N
-    iterVec{i} = num2str(i);
-end
+% %%
+% fantasy.mean{N} = []; fantasy.std{N} = [];
+% realCost{N}=[];  latent{N}=[];  realAcumCost(N) = 0;
+% M{N} = [];  Sigma{N} = [];
+% insertSuccess(N) = 0;

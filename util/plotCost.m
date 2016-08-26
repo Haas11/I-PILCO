@@ -53,6 +53,7 @@ h1 = errorbar(0,realWorld.mean(1),2*realWorld.std(1),'b--','LineWidth',1.2);
 for i=1:j
     errorbar(i,realWorld.mean(i+1),2*realWorld.std(i+1),'b','LineWidth',1.2,'AlignVertexCenters','on');
 end
+plot(0:j,realWorld.mean(1:j+1),'b-.','LineWidth',0.5);
 
 ax = gca;
 if numel(dynmodel.induce) ~= 0
@@ -60,12 +61,12 @@ if numel(dynmodel.induce) ~= 0
 end
     
 %%
-hb(1) = plot(0,0,'r','visible','off','MarkerSize',10,'LineWidth', 1.5);     % predicted
-hb(2) = plot(0,0,'b','visible','off','MarkerSize',10,'LineWidth', 1.5);     % recorded
+hb(1) = plot(0,0,'r--','visible','off','MarkerSize',10,'LineWidth', 1.5);     % predicted
+hb(2) = plot(0,0,'b-.','visible','off','MarkerSize',10,'LineWidth', 1.5);     % recorded
 
 ax.XTick = 0:1:j; 
 % ax.YLim = [fantasy.acumMean(1)-2.1*fantasy.acumStd(1), fantasy.acumMean(1)+2.1*fantasy.acumStd(1)];
 
 legend(hb,'Simulated (95% conf.)','Recorded (95%)','None Success','Some Success','Full Success','Location','NorthEast');
-title(strcat('\fontsize{14}Predicted and Recorded Cost per Iteration.  (\color{red}K=',num2str(K),'\color{black} and \color{blue}Ntest=',num2str(Ntest),'\color{black})'));
-xlabel('\fontsize{14}No. of Trials [#]');   ylabel('\fontsize{14}Cost Distribution [\mu, \sigma]');
+title(strcat('\fontsize{14}Predicted and Recorded Accumulated Cost Distributions(\color{red}K=',num2str(K),'\color{black} and \color{blue}Ntest=',num2str(Ntest),'\color{black})'));
+xlabel('\fontsize{14}Iteration #');   ylabel('\fontsize{14}Cost Distribution [\mu, \sigma]');

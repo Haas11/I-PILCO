@@ -9,7 +9,6 @@ a_init = cell(1,J);
 
 % Normally distributed initial rollouts:
 if type==1
-    H = varargin{2};
     initMean = policy.maxU;     initVar = policy.maxU.*2;
     for i=1:J
         a_init{i} = gaussian(initMean,diag(initVar),H)';
@@ -17,10 +16,8 @@ if type==1
     
 elseif type==2
     % Uniformly distributed initial rollouts:
-    t = varargin{1};
-    H = varargin{2};
     for i=1:J
-        a_init{i} = [t(1:H), repmat(policy.minU(policy.impIdx),H,1) + repmat(policy.maxU(policy.impIdx).*2-policy.minU(policy.impIdx),H,1).*rand(H,2)];
+        a_init{i} = repmat(policy.minU,H,1) + repmat(policy.maxU-policy.minU,H,1).*rand(H,2);
     end
     
 elseif type==3
@@ -37,7 +34,7 @@ elseif type==3
         end
     else
         sig_ratio = 6;                          % diffusion ratio
-        th = ones(1,J)*0.3;
+        th = ones(1,J)*0.3;     
     end
     sig = repmat(policy.maxU(1)*2/sig_ratio(1),J,1);    % spread
     
@@ -53,15 +50,14 @@ elseif type==3
     end
     
 elseif type==4
-    t = varargin{1};
-    f = varargin{2};
-    jitter = varargin{3};
-    for i=1:J
-        a_init{i} = [t, repmat(policy.maxU(policy.impIdx),length(t),1).*[sin(f*t + rand), cos(f*t + rand)]];
-        a_init{i}(:,2:end) = a_init{i}(:,2:end) + repmat(policy.maxU(policy.impIdx),length(t),1) + rand(length(t),size(a_init{i},2)-1).*repmat(policy.maxU(policy.impIdx)./jitter,length(t),1);
-    end
+	t = varargin{1};
+    period = 
+	for i=1:J
+		a_init{i} = [sin(t), cos(t)];
+		a_init{i} = a_init{i} + rand(size(a_init{i})).*policy.maxU(1);
+	end
 end
-
+	end
 %% Plot Results:
 if ~ishandle(22)
     figure(22);

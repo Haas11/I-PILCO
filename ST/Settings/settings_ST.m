@@ -96,7 +96,7 @@ if diffChecks
 end
 
 opt.verbosity = 3;                      % optimization verbosity      [0-3]
-plotting.verbosity = 3;                 % plotting verbosity          [0-3]
+plotting.verbosity = 2;                 % plotting verbosity          [0-3]
 
 %% 1. Define state indices
 stateLength = 24;
@@ -107,8 +107,12 @@ augi    = [];                                           % augi  indicies for var
 angi    = [];                                           % angi  indicies for variables treated as angles (using sin/cos representation) (subset of indices)
 dyno    = [7 8 13 14 19 20];                            % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
 dyni    = [1 2 3 4];                                    % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
-difi    = [1 2 3 4 5 6];                                    % difi  indicies for training targets that are differences                      (subset of dyno)
-poli    = [1 2];                                        % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
+difi    = [1 2 3 4];                                    % difi  indicies for training targets that are differences                      (subset of dyno)
+poli    = [1 2 3 4];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
+
+% force as input just doesnt work
+% force as difference, not input, gives good velocities, bad forces
+% force as absolute, not as input...    
 
 REF_PRIOR  = 0;                                         % encode prior reference mean?
 refi    = [];                                           % indices for which to encode a reference as  prior mean
@@ -119,11 +123,11 @@ actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]', 'ref_x','ref_y'};%, 'Kp_{rot} 
 
 %% 2. Set up the scenario
 % General:
-T = 5.0;                % [s] Rollout time
+T = 10.0;                % [s] Rollout time
 N = 30;                            % no. of controller optimizations
 Ntest = 3;                         % no. of roll outs to test controller quality
 J = 2;                             % no. of initial training rollouts
-K = 1;                             % no. of initial states for which we optimize
+K = 2;                             % no. of initial states for which we optimize
 
 colorVec = {'r','b','g','k','m','c','y','r-.','b-.','g-.','k-.','m-.','c-.','y-.',...
     'r:','b:','g:','k:','m:','c:','y:','r--','b--','g--','k--','m--','c--','y--'};
@@ -147,8 +151,8 @@ run init_3Lbot.m
 
 % Spatial constraints:
 mode = 0;    % mode
-xhole = [0.5, 0.1, 0];   % center hole location [x, y, phi/z]
-xc    = [0.45, 0.45, 0.40, 10, 10, 10]';  % [m] environment constraint location
+xhole = [0.5, 0.2, 0];   % center hole location [x, y, phi/z]
+xc    = [0.45, 2, 2, 10, 10, 10]';  % [m] environment constraint location
 
 if ~ishandle(5)         % robot animation
     figure(5);
@@ -156,10 +160,10 @@ else
     set(0,'CurrentFigure',5);
 end
 % First rollout:
-H0   = transl([0.3 0 0]);      % start pose end-effector (nominal start pose)
-H1   = transl([0.5 0 0]);
-H2 = transl(0.55, 0.15, 0);
-H3 = transl(0.6, 0.05, 0);
+H0   = transl([0.3 0.2 0]);      % start pose end-effector (nominal start pose)
+H1   = transl([0.5 0.10 0]);
+H2 = transl(0.55, 0.25, 0);
+H3 = transl(0.6, 0.15, 0);
 [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td]...
     = genTrajectory(robot, mode, H0, H1, H2, H3, xhole, xc, T, dt);
 deltaXe_des = diff(xe_des(1:length(t),2:end));
@@ -167,9 +171,9 @@ aR_init{1} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
 robot.plot(mu0(1:robot.n));
 
 % Second rollout:
-H0 = transl([0.3 0 0]);       % start pose end-effector
-H1 = transl([0.5 0.2 0]);       
-H2 = transl(0.6, 0.05, 0);
+H0 = transl([0.3 0.3 0]);       % start pose end-effector
+H1 = transl([0.5 0.15 0]);       
+H2 = transl(0.6, 0.25, 0);
 H3 = transl(0.55, 0.15, 0);
 [mu01, ~, xe_des, ~, ~, ~, ~, ~, ~]...
     = genTrajectory(robot, mode, H0, H1, H2, H3, xhole, xc, T, dt);
@@ -190,7 +194,7 @@ aR_init{3} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
 initialMu0 = [mu0; mu01; mu02];
 
 initPredVar = 0.001^2;                               % initial state variance around mean
-startStateInterval = [0 0 0 0 0 0]';             % interval for which start states may vary [x y z]
+startStateInterval = [0 0.10 0 0 0 0]';             % interval for which start states may vary [x y z]
 mu0Sim = mu0(dyno);                                 % initial mean for simulation
 S0Sim = diag(ones(1,length(dyno))*initPredVar);     % covariance matrix of initial state distribution during simulation 
 
@@ -216,8 +220,8 @@ if plotting.verbosity > 1
 end
 
 % Environment:
-Kp_env = [1e4, 5e3 1e4, 0, 0, 0];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
-Kd_env = [1, 50, 1, 0, 0, 0];              %[Ns/m] damping
+Kp_env = [4e3, 2e3 1e4, 0, 0, 0];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
+Kd_env = [1, 1, 1, 0, 0, 0];              %[Ns/m] damping
 
 % Display Scenario in Console:
 fprintf('\nFinal transformation: \nH^0_n(T) = \n\n');
@@ -230,8 +234,8 @@ disp(xhole)
 
 
 %% 3. Set up the plant structure
-outputNoiseSTD = ones(1,length(odei))*0.001.^2;                          % noise added to odei indicies in simulation
-outputNoiseSTD(1,end-5:end) = 0.05^2;
+outputNoiseSTD = ones(1,length(odei))*0.0017.^2;                          % noise added to odei indicies in simulation
+outputNoiseSTD(1,end-5:end) = 0.1^2;
 
 plant.noise = diag(outputNoiseSTD);
 plant.dt = dt_pilco;
@@ -252,46 +256,52 @@ plant.startStateInterval = startStateInterval;
 
 %% 4. Set up the policy structure
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
-policy.maxU  = [250/2 250/2, 0.005  0.005];
-policy.minU  = [10    10,   -0.005 -0.005];
+maxVel = 0.25;         % maximum Cartesian velocity
+policy.maxU  = [250/2 250/2, dt*maxVel  dt*maxVel];
+policy.minU  = [10    10,   -dt*maxVel -dt*maxVel];
 policy.impIdx = [1, 2]; 			% non-negative indices of policy outputs (saturate + translate)
 policy.refIdx = [3, 4];             % reference indices (only saturate)
+policy.SNR = 100;
 Du = length(policy.maxU);
+translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
 
-seedMatrix = 1:1:J*length(policy.impIdx);
-seedMatrix = reshape(seedMatrix,J,[]);
+aK_init = genInitActions(policy, J, 2, actionTitles, t_pilco, H);
+% aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 6, 0.2);
+% aK_init = genInitActions(policy, J, 4, actionTitles, t_pilco, 3, 0.5);
 
-aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 6, 0.3);
-
-nc = 25;
-policy.SNR = 100;        % signal-to-noise ratio (std_f/std_n)
+nc = 50;
 policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
 policy.p.targets = 0.1*randn(nc, length(policy.maxU));                                         % init. policy targets 
 policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]
     repmat(log([ones(1,length(poli))*1, 1, 1/policy.SNR]'), 1, length(policy.maxU));
 
 %% 5. Set up the cost structure
-cost.fcn   = @my_lossAdd;                       % cost function
+cost.fcn   = @my_lossAdd2;                       % cost function
 cost.gamma = 1;                                 % discount factor  =1 for finite horizon
 cost.expl  = -0.25;                             % exploration weight (UCB) smoothes the value function out and simplifies the optimization problem.
 
 % Energy penalty parameters:
-cost.ep     = 0.001;                              % weight
-cost.refPen = false;                            % energy penalty on reference actions
-cost.epType = 2;                                % energy cost function type: 1=1-norm, 2=mean squared
+cost.ep  = 0.01;                              % weight
+idx = policy.impIdx;
+
+nonIdx = find(~ismember(1:Du,idx));
+normalizer = (policy.maxU*diag(translVec)).^2;
+quadraticWidth  = diag(normalizer);          % normalization matrix for quadratic ep
+iT = inv(quadraticWidth);
+iT(nonIdx,nonIdx)= 0;    
+cost.iT = iT;
 
 cost.sub{1}.fcn     = @lossSat_2dPIH;
 cost.sub{1}.losi    = [1];                        % indicies for saturating cost states
-cost.sub{1}.target  = ([xhole(1)] + [0.05])';   % target state
-cost.sub{1}.weight  = [1];                        % weight of states costs relative to each other.
+cost.sub{1}.target  = (xhole(1) + [0.05])';   % target state
 cost.sub{1}.width   = 0.05;
 cost.sub{1}.angle   = plant.angi;
 
 cost.sub{2}.fcn     = @lossSat_2dPIH;
-cost.sub{2}.losi 	= [5 6];                        % indicies for force
-cost.sub{2}.target  = [0 0];                        % target state
-cost.sub{2}.width   = 20;                           % Weight matrix
-cost.sub{2}.angle   = plant.angi;                   % index of angle (for cost function)
+cost.sub{2}.losi    = [5 6];                        % indicies for saturating cost states
+cost.sub{2}.target  = [0 0];   % target state
+cost.sub{2}.width   = 25;
+cost.sub{2}.angle   = plant.angi;
 
 %% 6. Set up the GP dynamics model structure
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions
@@ -307,7 +317,7 @@ compareToFullModel = true;
 %% 7. Parameters for policy optimization
 opt.fh = 1;
 opt.method = 'BFGS';                    % 'BFGS' (default), 'LBFGS' (x>1000), 'CG'
-opt.length = 50;                        % (+): max. number of line searches
+opt.length = 25;                        % (+): max. number of line searches
 opt.MFEPLS = 25;                        % max. number of function evaluations per linesearch
 % opt.MSR = 100;                        % max. slope ratio (default=100)
 
@@ -321,9 +331,3 @@ M = cell(N,1);  Sigma = cell(N,1);
 Mfull = cell(N,1); Sfull = cell(N,1);
 insertSuccess = cell(1,N+1);    scoreCard = zeros(1,N+1);
 reference = zeros(H+1,length(dyno));
-
-% %%
-% fantasy.mean{N} = []; fantasy.std{N} = [];
-% realCost{N}=[];  latent{N}=[];  realAcumCost(N) = 0;
-% M{N} = [];  Sigma{N} = [];
-% insertSuccess(N) = 0;
