@@ -25,3 +25,7 @@ cd H:\Documents\MATLAB\Results\S\Simple\Images
 
 run saveImages.m;
 
+%%
+clc;
+fprintf('made it');
+

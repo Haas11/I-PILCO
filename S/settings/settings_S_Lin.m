@@ -91,7 +91,7 @@ if diffChecks
     fprintf('\n==================================\n\n');
 end
 
-opt.verbosity = 0;                      % optimization verbosity      [0-3]
+opt.verbosity = 1;                      % optimization verbosity      [0-3]
 plotting.verbosity = 2;                 % plotting verbosity          [0-3]
 
 %% 1. Define state indices
@@ -141,19 +141,19 @@ if plotting.verbosity > 1
     figure(15);
     subplot(3,1,1)
     plot(xe_des(:,2:end));
-    title('Reference Trajectories');
-    ylabel('Positions [m]');
+    title('\fontsize{16}Reference Trajectories');
+    legend('\fontsize{14}x','\fontsize{14}y','\fontsize{14}z','Location','Best');
+    ylabel('\fontsize{14}Position [m]');
     grid on
     axis tight
     subplot(3,1,2)
     plot(dxe_des(:,2:end))
-    ylabel('Velocity [m/s]')
-    legend('x_e','y_e','z_e','Location','Best');
+    ylabel('\fontsize{14}Velocity [m/s]')
     axis tight 
     grid on
     subplot(3,1,3)
     plot(ddxe_des(:,2:end))
-    ylabel('Acceleration [m/s/s]'); xlabel(strcat('Time steps   (d_t = ',num2str(dt), ')'));
+    ylabel('\fontsize{14}Acceleration [m/s^2]'); xlabel(strcat('\fontsize{14}Time steps (d_t=',num2str(dt), ')'));
     axis tight
     grid on
 end

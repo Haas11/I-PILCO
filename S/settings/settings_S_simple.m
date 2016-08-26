@@ -91,7 +91,7 @@ if diffChecks
     fprintf('\n==================================\n\n');
 end
 
-opt.verbosity = 3;                      % optimization verbosity      [0-3]
+opt.verbosity = 1;                      % optimization verbosity      [0-3]
 plotting.verbosity = 2;                 % plotting verbosity          [0-3]
 
 %% 1. Define state indices
@@ -116,7 +116,7 @@ hyperTitles = [dynoTitles, actionTitles, {'\sigma_f','\sigma_w'}];
 
 %% 2. Set up the scenario
 dynPert = 0.15;          % [%] Perturbation of dynamics during simulation 
-dt = 0.01;             % [s] controller sampling time
+dt = 0.005;             % [s] controller sampling time
 dt_pilco = 0.1;          % [s] PILCO sampling rate 
 fprintf('\nInitializing robot model');
 run init_3Lbot.m
@@ -125,7 +125,7 @@ T = 10.0;                % [s] Rollout time
 t_pilco = (0:dt_pilco:T)';
 peg = 1;                 % [bool]  peg insertion trajectory
 xhole = [0.5, 0.2, 0];   % center hole location [x, y, phi/z]
-xholetraj = [0.5, 0.2, 0];   % center hole location [x, y, phi/z]
+xholetraj = [0.5, 0.3, 0];   % center hole location [x, y, phi/z]
 xc    = [0.45, 10, 10, 10, 10, 10]';  % [m] environment constraint location
 x0    = [0.3 0 0];
 H0    = transl(x0);      % start pose end-effector
@@ -193,7 +193,7 @@ end
 
 %% 3. Set up the plant structure
 outputNoiseSTD = ones(1,length(odei))*deg2rad(0.1).^2;        % noise added to odei indicies in simulation
-outputNoiseSTD(1,robot.n+1:2*robot.n) = 0.001.^2;
+outputNoiseSTD(1,robot.n+1:2*robot.n) = 0.0001.^2;
 outputNoiseSTD(1,end-5:end) = 0.1^2;
 initRollOutNoise = 1e-3;
 
@@ -221,7 +221,7 @@ Du = length(policy.maxU);
 translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
 
 % GP Controller:
-nc = 50;
+nc = 25;
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
 policy.p.targets = 0.1*randn(nc, length(policy.maxU));    % init. policy targets 
 policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
