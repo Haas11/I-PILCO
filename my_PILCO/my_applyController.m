@@ -133,9 +133,10 @@ if plotting.verbosity > 0
             errorbar( (1:length(Mcon{j}(i,:)))*plant.dt, Mcon{j}(i,:), ...
                 2*sqrt(squeeze(Scon{j}(i,i,:))),'r');
             hold on;
-            stairs((1:length(a(:,i)))*plant.dt,a(:,i),colorVec{J+j});
+            stairs((1:length(a(:,i)))*plant.dt,a(:,i),'b','LineWidth',1.1);
             axis tight; grid on
-            xlabel('\fontsize{14}Time [s]');    ylabel(strcat('\fontsize{14}',actionTitles{i}),'interpreter','Tex');
+            if i==Du; xlabel('\fontsize{14}Time [s]'); end;
+            ylabel(strcat('\fontsize{14}',actionTitles{i}),'interpreter','Tex');
             title(num2str('\fontsize{14}',actionTitles{i}));
         end
         drawnow;

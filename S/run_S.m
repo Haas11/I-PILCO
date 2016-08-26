@@ -1,31 +1,40 @@
-cd H:\Documents\MATLAB\Results\S\Lin\Data
-run learnImp_S_Lin.m
-cd H:\Documents\MATLAB\Results\S\Lin\Images
-
-run saveImages.m;
-
-%%
-cd H:\Documents\MATLAB\Results\S\GP10\Data
-run learnImp_S_GP10.m
-cd H:\Documents\MATLAB\Results\S\GP10\Images
-
-run saveImages.m;
-
-%%
-cd H:\Documents\MATLAB\Results\S\GP25\Data
-run learnImp_S_GP25.m
-cd H:\Documents\MATLAB\Results\S\GP25\Images
-
-run saveImages.m;
-
-%%
-cd H:\Documents\MATLAB\Results\S\Simple\Data
-run learnImp_S_simple.m
-cd H:\Documents\MATLAB\Results\S\Simple\Images
-
-run saveImages.m;
-
-%%
-clc;
-fprintf('made it');
-
+for runCount=1:3
+    mkdir('H:\Documents\MATLAB\Results\S\Lin',strcat('Data',num2str(runCount)));
+    mkdir('H:\Documents\MATLAB\Results\S\Lin',strcat('Img',num2str(runCount)));
+    cd(strcat('H:\Documents\MATLAB\Results\S\Lin\Data',num2str(runCount)));
+    run learnImp_S_Lin.m
+    
+    cd(strcat('H:\Documents\MATLAB\Results\S\Lin\Img',num2str(runCount)));    
+    run saveImages.m;
+    
+    %%
+    mkdir('H:\Documents\MATLAB\Results\S\GP10',strcat('Data',num2str(runCount)));
+    mkdir('H:\Documents\MATLAB\Results\S\GP10',strcat('Img',num2str(runCount)));
+    cd(strcat('H:\Documents\MATLAB\Results\S\GP10\Data',num2str(runCount)));
+    run learnImp_S_GP10.m
+    
+    cd(strcat('H:\Documents\MATLAB\Results\S\GP10\Img',num2str(runCount)));    
+    run saveImages.m;
+    
+    %%
+    mkdir('H:\Documents\MATLAB\Results\S\GP10',strcat('Data',num2str(runCount)));
+    mkdir('H:\Documents\MATLAB\Results\S\GP10',strcat('Img',num2str(runCount)));
+    cd(strcat('H:\Documents\MATLAB\Results\S\GP25\Data',num2str(runCount)));
+    run learnImp_S_GP25.m
+    
+    cd(strcat('H:\Documents\MATLAB\Results\S\GP25\Img',num2str(runCount)));    
+    run saveImages.m;
+    
+    %%
+    mkdir('H:\Documents\MATLAB\Results\S\Lin',strcat('Data',num2str(runCount)));
+    mkdir('H:\Documents\MATLAB\Results\S\Lin',strcat('Img',num2str(runCount)));
+    cd(strcat('H:\Documents\MATLAB\Results\S\Lin\Data',num2str(runCount)));    
+    run learnImp_S_simple.m
+    
+    cd(strcat('H:\Documents\MATLAB\Results\S\Lin\Img',num2str(runCount)));   
+    run saveImages.m;
+    
+    %%
+    clc;
+    fprintf('made it');
+end

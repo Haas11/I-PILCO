@@ -17,7 +17,7 @@
 % expll = [-0.1 -0.2 -0.4 -0.6 -0.8];
 
 %% 1. Initialization
-clear; clc;
+clear -runCount; clc;
 figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
     clf(figHandles(i));

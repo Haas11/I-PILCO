@@ -72,7 +72,7 @@
 
 %% Inits
 warning('on','all');
-rng(0,'twister');
+rng(runCount,'twister');
 format short; format compact;
 global diffChecks REF_PRIOR 
 global diffTol conCheck gpCheck propCheck valueCheck satCheck lossCheck checkFailed
