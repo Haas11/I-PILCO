@@ -7,7 +7,7 @@ markerStyle = {'s','d','o'};
 %% Plot Fantasy Costs
 if ~ishandle(10)         % cost iterations
     figure(10);
-    set(gcf,'units','normalized','outerposition',[0.1 0.1 0.95 0.95])
+    set(gcf,'units','normalized','outerposition',[0.1 0.1 0.9 0.9])
 else
     set(0,'CurrentFigure',10);
 end
@@ -49,12 +49,16 @@ end
 hold on;
 
 % variance:
-h1 = errorbar(0,realWorld.mean(1),2*realWorld.std(1),'b--','LineWidth',1.2);
-for i=1:j
-    errorbar(i,realWorld.mean(i+1),2*realWorld.std(i+1),'b','LineWidth',1.2,'AlignVertexCenters','on');
+if Ntest > 1
+    h1 = errorbar(0,realWorld.mean(1),2*realWorld.std(1),'b--','LineWidth',1.2);
+    for i=1:j
+        errorbar(i,realWorld.mean(i+1),2*realWorld.std(i+1),'b','LineWidth',1.2,'AlignVertexCenters','on');
+    end
 end
+% connecting line
 plot(0:j,realWorld.mean(1:j+1),'b-.','LineWidth',0.5);
 
+% start of inducing inputs:
 ax = gca;
 if numel(dynmodel.induce) ~= 0
     plot([(nii/H)-J, (nii/H)-J],ax.YLim,'k:');
@@ -68,5 +72,5 @@ ax.XTick = 0:1:j;
 % ax.YLim = [fantasy.acumMean(1)-2.1*fantasy.acumStd(1), fantasy.acumMean(1)+2.1*fantasy.acumStd(1)];
 
 legend(hb,'Simulated (95% conf.)','Recorded (95%)','None Success','Some Success','Full Success','Location','NorthEast');
-title(strcat('\fontsize{14}Predicted and Recorded Accumulated Cost Distributions(\color{red}K=',num2str(K),'\color{black} and \color{blue}Ntest=',num2str(Ntest),'\color{black})'));
+title(strcat('\fontsize{14}Predicted and Recorded Accumulated Cost Distributions (\color{red}K=',num2str(K),'\color{black} and \color{blue}Ntest=',num2str(Ntest),'\color{black})'));
 xlabel('\fontsize{14}Iteration #');   ylabel('\fontsize{14}Cost Distribution [\mu, \sigma]');

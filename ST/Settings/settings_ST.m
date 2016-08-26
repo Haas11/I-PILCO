@@ -291,13 +291,13 @@ iT = inv(quadraticWidth);
 iT(nonIdx,nonIdx)= 0;    
 cost.iT = iT;
 
-cost.sub{1}.fcn     = @lossSat_2dPIH;
+cost.sub{1}.fcn     = @my_lossSat;
 cost.sub{1}.losi    = [1];                        % indicies for saturating cost states
 cost.sub{1}.target  = (xhole(1) + [0.05])';   % target state
 cost.sub{1}.width   = 0.05;
 cost.sub{1}.angle   = plant.angi;
 
-cost.sub{2}.fcn     = @lossSat_2dPIH;
+cost.sub{2}.fcn     = @my_lossSat;
 cost.sub{2}.losi    = [5 6];                        % indicies for saturating cost states
 cost.sub{2}.target  = [0 0];   % target state
 cost.sub{2}.width   = 25;

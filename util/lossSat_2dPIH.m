@@ -49,7 +49,7 @@
 % # Trigonometric augmentation
 % # Calculate loss
 
-function [L, dLdm, dLds, S2, dSdm, dSds, C2, dCdm, dCds] = my_lossSat(cost, m, s)
+function [L, dLdm, dLds, S2, dSdm, dSds, C2, dCdm, dCds] = lossSat_2dPIH(cost, m, s)
 %% Code
 if isfield(cost,'width')
     cw = cost.width;
