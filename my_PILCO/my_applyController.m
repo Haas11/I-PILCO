@@ -62,10 +62,9 @@ testCost{j} = testCosti;
 trialAcumCost{j+1} = sum(tempCost,1);
 realWorld.mean(j+1) = mean(trialAcumCost{j+1},2);
 realWorld.std(j+1) = std(trialAcumCost{j+1},0,2);   % flag: 0 = n-1, 1=n
-
 if isempty(find(insertSuccess{j+1}==2,2))   % None Success
     scoreCard(j+1) = 0;
-elseif length(find(insertSuccess{j+1}==2,2))==Ntest+1
+elseif all(insertSuccess{j+1}==2)
     scoreCard(j+1) = 2;                 % All Success
 else
     scoreCard(j+1) = 1;                 % Partial Success
@@ -82,11 +81,11 @@ if plotting.verbosity > 0
     hold on;
     stairs(1:length(realCost{J+j}),realCost{J+j},'r'); hold on;
     for ii=1:Ntest
-        stairs(1:length(testCosti{ii}),testCosti{ii},'g');
+        stairs((1:length(testCosti{ii}))*plant.dt,testCosti{ii},'g');
         hold on;
     end
-    title('Predicted (uncertain) & Rollout (deterministic) Immediate Cost');
-    xlabel('Time [s]');     ylabel('Immediate Cost');
+    title('\fontsize{14}Predicted (uncertain) & Rollout (deterministic) Immediate Cost');
+    xlabel('\fontsize{14}Time [s]');     ylabel('\fontsize{14}Immediate Cost');
     legend('predicted','test','verifications');
     axis tight;
     drawnow;
@@ -100,11 +99,15 @@ if plotting.verbosity > 0
     hold on;
     a = xx(:,end-Du+1:end);
     for i=1:Du
-        subplot(ceil(Du/sqrt(Du)),ceil(sqrt(Du)),i);
+        if Du==2
+            subplot(2,1,i)
+        else
+            subplot(ceil(Du/sqrt(Du)),ceil(sqrt(Du)),i);
+        end
         hold on;
-        stairs(1:length(a(:,i)),a(:,i),colorVec{J+j});
+        stairs((1:length(a(:,i)))*plant.dt,a(:,i),colorVec{J+j});
         legend(iterVec{1:J+j});
-        xlabel('Timestep');     ylabel(actionTitles{i});
+        xlabel('\fontsize{14}Time');     ylabel(strcat('\fontsize{14}',actionTitles{i}),'interpreter','Tex');
         axis tight
     end
     
@@ -112,58 +115,7 @@ if plotting.verbosity > 0
     run plotCost.m
     
     if plotting.verbosity > 1
-        % GP Model predictions:
-        if ~ishandle(4)
-            figure(4);
-        else
-            set(0,'CurrentFigure',4)
-        end
-        clf(4);
-        ldyno = length(dyno);
-        for i=1:ldyno       % plot the rollouts on top of predicted error bars
-            subplot(ceil(ldyno/sqrt(ldyno)),ceil(sqrt(ldyno)),i); hold on;
-            
-            % Reference:
-            if dyno(i)~=stateLength
-                plot(rr(:,i),'k:');
-            end
-            
-            % Sparse Model:
-            errorbar( 0:length(M{j}(i,:))-1, M{j}(i,:), ...
-                2*sqrt(squeeze(Sigma{j}(i,i,:))),'b','AlignVertexCenters','on');
-            
-            % Full model:
-            if compareToFullModel && ~isempty(Mfull{j})
-                errorbar(0:length(Mfull{j}(i,:))-1, Mfull{j}(i,:), ...
-                    2*sqrt(squeeze(Sfull{j}(i,i,:))), 'y');
-            end
-            
-            
-            % Model trial:
-            stairs( 0:size(latent{j+J}(:,dyno(i)),1)-1, latent{j+J}(:,indices(dyno(i))),'r');      % recorded latent states in apply_controller roll-out
-            
-            % Test:
-            for ii=1:Ntest
-                stairs( 0:size(testLati{ii}(:,dyno(i)),1)-1, testLati{ii}(:,indices(dyno(i))), 'g' );        % recorded latent states in multiple robustness test-rollouts
-            end
-            
-            %             % Inducing inputs Locations:
-            %             if i <= length(dyni) && numel(dynmodel.induce) ~= 0
-            %                 plot(zeros(nii,1),dynmodel.induce(:,i),'kx');
-            %             end
-            
-            title(dynoTitles{i});
-            if i==1
-                if compareToFullModel && ~isempty(Mfull{j})
-                    legend('Reference','Planning Model','Full Model','Data Trial','Test Trials','Location','Best');
-                else
-                    legend('Reference','Planning Model','Data Trial','Test Trials','Location','Best');
-                end
-            end
-            axis tight
-            grid on
-        end
-        drawnow;
+        run plotModel.m
         
         % Actions during latest rollout:
         if ~ishandle(11)
@@ -173,13 +125,20 @@ if plotting.verbosity > 0
         end
         clf(11);
         for i=1:Du       % plot the rollouts on top of predicted error bars
-            subplot(2,2,i); hold on;
-            errorbar( 1:length(Mcon{j}(i,:)), Mcon{j}(i,:), ...
+            if Du==2
+                subplot(2,1,i)
+            else
+                subplot(ceil(Du/sqrt(Du)),ceil(sqrt(Du)),i);
+            end
+            hold on;
+            errorbar( (1:length(Mcon{j}(i,:)))*plant.dt, Mcon{j}(i,:), ...
                 2*sqrt(squeeze(Scon{j}(i,i,:))),'r');
-            axis tight
-            grid on
-            xlabel('Time step');    ylabel('Stiffness');
-            title(actionTitles{i});
+            hold on;
+            stairs((1:length(a(:,i)))*plant.dt,a(:,i),'b','LineWidth',1.1);
+            axis tight; grid on
+            if i==Du; xlabel('\fontsize{14}Time [s]'); end;
+            ylabel(strcat('\fontsize{14}',actionTitles{i}),'interpreter','Tex');
+            title(num2str('\fontsize{14}',actionTitles{i}));
         end
         drawnow;
         
@@ -201,7 +160,7 @@ if plotting.verbosity > 0
                 set(0,'CurrentFigure',7);
             end
             hold on; grid on;
-            stairs(1:length(realCost{J+j}),realCost{J+j},colorVec{J+j});
+            stairs(1:length(realCost{J+j}),realCost{J+j},colorVec{J+j});            
             legend(iterVec{1:J+j});
             title('Recorded Cost in Rollout');
             xlabel('Time [s]');     ylabel('Immediate Cost');

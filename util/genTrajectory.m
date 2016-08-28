@@ -12,8 +12,8 @@ fac = [1 2 6 5;2 3 7 6;3 4 8 7;4 1 5 8;1 2 3 4;5 6 7 8];
 % patch('Vertices',vert,'Faces',fac,'FaceVertexCData',hsv(6),'FaceColor','flat');
 
 % Test trajectory:
-t1 = 3*T/10;
-t2 = 6*T/10;
+t1 = 4*T/10;
+t2 = 7*T/10;
 t3 = 9*T/10;
 t_total     = (0:dt:T)';
 t_approach  = [0:dt:t1]';
@@ -41,9 +41,7 @@ if ~peg
     else
         q0 = robot.ikine(H0,q0_est,[1 1 0 0 0 1],'pinv');
     end
-    H0 = robot.fkine(q0);
-
-    
+    H0 = robot.fkine(q0);   
     Hf = transl(xhole);
     
     [xe1, ~, ~] = mtraj(@tpoly, transl(H0)', transl(H1)', t_approach);

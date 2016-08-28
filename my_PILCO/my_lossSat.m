@@ -31,7 +31,6 @@
 %   dLds  derivative of expected cost wrt. state covariance matrix  [1 x D^2]
 %   S2    variance of cost                                          [1 x  1 ]
 %
-%   ???????? --> add these variances
 %   dSdm            derivative of S wrt input mean                 [1   x   D]
 %   dSds            derivative of S wrt input covariance           [1   x   D^2]
 %   C               inv(S) times input-output covariance           [D   x   1]
@@ -49,7 +48,7 @@
 % # Trigonometric augmentation
 % # Calculate loss
 
-function [L, dLdm, dLds, S2] = my_lossSat(cost, m, s, varargin)
+function [L, dLdm, dLds, S2, dSdm, dSds, C2, dCdm, dCds] = my_lossSat(cost, m, s)
 %% Code
 if isfield(cost,'width')
     cw = cost.width;
@@ -61,7 +60,6 @@ if ~isfield(cost,'expl') || isempty(cost.expl)
 else
     b =  cost.expl;
 end
-target = cost.target(:);
 
 % 1. Some precomputations
 D0 = size(s,2);                           % state dimension
@@ -75,96 +73,44 @@ Sdm = zeros(D1*D1,D0);
 Mds = zeros(D1,D0*D0);
 Sds = kron(Mdm,Mdm);
 
-Q = zeros(D0);
-for i=1:length(cost.losi)
-    Q(cost.losi(i),cost.losi(i)) = 1;
-end
-    
+% Define static penalty as distance from target setpoint
+Q = eye(D0);
+target = cost.target(:);
+
+% Calculate loss
 L    = 0;
 dLdm = zeros(1,D0);
 dLds = zeros(1,D0*D0);
+
 S2   = 0;
+dSds = zeros(1,D1*D1);
+dSdm = zeros(1,D1);
 
-for i = 1:length(cw)                    % scale mixture of immediate costs
-    cost.z = target; cost.W = Q/cw(i)^2;
-    [r, rdM, rdS, s2, s2dM, s2dS] = lossSat(cost, M, S);
-    
-    L = L + r;
-    S2 = S2 + s2;
-    dLdm = dLdm + rdM(:)'*Mdm + rdS(:)'*Sdm;
-    dLds = dLds + rdM(:)'*Mds + rdS(:)'*Sds;
-    
-    % Energy penalty if required
-    if isfield(cost,'ep') && cost.ep ~= 0
-        
-        % Control mean:
-        ma = varargin{1};                                   % control mean          [1 x nU]
-        policy = varargin{2};
-        Ma = ma(policy.impIdx);                         	% select impedance part
-        Ma_norm = Ma./(policy.maxU(policy.impIdx).*2)';		% normalized actions    [nUi x 1]
-        La = cost.ep*sum(Ma_norm,1);                        % energy penalty term 	[1 x 1]
-        L = L + La;
-        
-        if nargout > 1 && nargin > 5        % energy penalty w/ derivatives
-            dmadm = varargin{3};                            % deriv of control mean w.r.t. policy input state mean [nU x lpoli]
-            dmads = varargin{4};                            % deriv of control mean w.r.t. policy input state variance [nU x lpoli^2]
-            plant = varargin{5};
-            dyno  = plant.dyno;     poli = plant.poli;
-            ldyno = length(dyno);   lpoli = length(poli);
-            nU = length(policy.maxU);
-            dLadma = ones(1,length(policy.impIdx));                             % derivative of 1 norm 	[1 x nUi]
-            
-            % deriv control mean w.r.t state mean
-            dmadm_con = [dmadm, zeros(nU,ldyno-lpoli)];                         % concat dif with zeros	[nU  x ldyno]
-            dMadm = dmadm_con(policy.impIdx,:);                                 % select impedance part [nUi x ldyno]
-            dMadm = bsxfun(@rdivide,dMadm,(policy.maxU(policy.impIdx)'.*2));    % normalize
-            
-            dLdm = dLdm + cost.ep*dLadma*dMadm;                                 % [1 x ldyno] 	= [1 x ldyno] 	+ [1 x 1][1 x nUi][nUi x ldyno]
-            
-            % deriv control mean w.r.t. state variance
-            dynotemp = 1:1:ldyno;
-            comp = ismember(dynotemp,poli);                                     % compare inputs 		[1 x ldyno]
-            relevantIdx = find(comp==1);                                        % relevant indices  	[1 x lpoli]
-            dmads_con = zeros(nU,ldyno,ldyno);                                  % init 	3D				[nU x ldyno x ldyno]
-            dmads3D = reshape(dmads,[nU,lpoli,lpoli]);                          % reshape to 3D
-            dmads_con(:,relevantIdx,relevantIdx) = dmads3D(:,:,:);		% fill at proper places
-            dmads_con = reshape(dmads_con,[nU ldyno^2]);                        % reshape back to 2D 	[nU x ldyno^2]
-            dMads = dmads_con(policy.impIdx,:);                                 % select impedance part [nUi x ldyno^2]
-            dMads = bsxfun(@rdivide,dMads,(policy.maxU(policy.impIdx)'.*2));
-            dLds = dLds + cost.ep*dLadma*dMads;                                 % [1 x ldyno^2] = [1 x ldyno^2] + [1 x 1][1 x nUi][nUi x ldyno^2]]
-        end
-    end
+C2   = zeros(D1,1);
+dCdm = zeros(D1,D1);
+dCds = zeros(D1,D1*D1);
 
-    % Exploration penalty if required    
-    if (b~=0 || ~isempty(b)) && abs(s2)>1e-12
-        L = L + b*sqrt(s2);
-        dLdm = dLdm + b/sqrt(s2) * ( s2dM(:)'*Mdm + s2dS(:)'*Sdm )/2;
-        dLds = dLds + b/sqrt(s2) * ( s2dM(:)'*Mds + s2dS(:)'*Sds )/2;
-    end
+cost.z = target; cost.W = Q/cw^2;
+if nargout < 5
+    [r, rdM, rdS, s2, s2dM, s2dS]                 = lossSat(cost, M, S);
+else
+    [r, rdM, rdS, s2, s2dM, s2dS, c2, c2dM, c2dS] = lossSat(cost, m, s);
+    
+    dSdm = dSdm + s2dM;
+    dSds = dSds + reshape(s2dS,1,D1^2);
+    
+    C2 = C2 + c2;
+    dCdm = dCdm + c2dM;
+    dCds = dCds + c2dS;
 end
 
-% normalize
-n = length(cw);
-L = L/n;
-dLdm = dLdm/n;
-dLds = dLds/n;
-S2 = S2/n;
+L = L + r;
+S2 = S2 + s2;
+dLdm = dLdm + rdM(:)'*Mdm + rdS(:)'*Sdm;
+dLds = dLds + rdM(:)'*Mds + rdS(:)'*Sds;
 
-% Fill in covariance matrix...and derivatives ----------------------------
-function [S, Mdm, Mds, Sdm, Sds] = ...
-    fillIn(S,C,mdm,sdm,Cdm,mds,sds,Cds,Mdm,Sdm,Mds,Sds,i,k,D)
-X = reshape(1:D*D,[D D]); XT = X';                    % vectorized indices
-I=0*X; I(i,i)=1; ii=X(I==1)'; I=0*X; I(k,k)=1; kk=X(I==1)';
-I=0*X; I(i,k)=1; ik=X(I==1)'; ki=XT(I==1)';
-
-Mdm(k,:)  = mdm*Mdm(i,:) + mds*Sdm(ii,:);                      % chainrule
-Mds(k,:)  = mdm*Mds(i,:) + mds*Sds(ii,:);
-Sdm(kk,:) = sdm*Mdm(i,:) + sds*Sdm(ii,:);
-Sds(kk,:) = sdm*Mds(i,:) + sds*Sds(ii,:);
-dCdm      = Cdm*Mdm(i,:) + Cds*Sdm(ii,:);
-dCds      = Cdm*Mds(i,:) + Cds*Sds(ii,:);
-
-S(i,k) = S(i,i)*C; S(k,i) = S(i,k)';                        % off-diagonal
-SS = kron(eye(length(k)),S(i,i)); CC = kron(C',eye(length(i)));
-Sdm(ik,:) = SS*dCdm + CC*Sdm(ii,:); Sdm(ki,:) = Sdm(ik,:);
-Sds(ik,:) = SS*dCds + CC*Sds(ii,:); Sds(ki,:) = Sds(ik,:);
+% if (b~=0 || ~isempty(b)) && abs(s2)>1e-12
+%     L = L + b*sqrt(s2);
+%     dLdm = dLdm + b/sqrt(s2) * ( s2dM(:)'*Mdm + s2dS(:)'*Sdm )/2;
+%     dLds = dLds + b/sqrt(s2) * ( s2dM(:)'*Mds + s2dS(:)'*Sds )/2;
+% end

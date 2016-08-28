@@ -8,4 +8,4 @@ Kp_env = diag(Kp_env);
 
 % M = robot.cinertia(q');              % robot cartesian inertia matrix
 
-Kd = 2*zeta.*sqrt((Kp + Kp_env));  % damping matrix
+Kd = 2*zeta.*sqrt((Kp+Kp_env));  % damping matrix

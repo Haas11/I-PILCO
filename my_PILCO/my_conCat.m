@@ -1,3 +1,4 @@
+
 %% concat.m
 % *Summary:* Compute a control signal $u$ from a state distribution
 % $x\sim\mathcal N(x|m,s)$. Here, the predicted control distribution

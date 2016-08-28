@@ -110,7 +110,7 @@ else                                                                    % otherw
             L(t) = cost.gamma^t*L(t);                                       % discounted predicted cost
                         
             % Explicit Derivatives:           
-            dLadp = 2*ma'*iT*dmadp + reshape(iT,1,[])*dsadp;
+            dLadp = cost.ep*(2*ma'*iT*dmadp + reshape(iT,1,[])*dsadp);
             
             dp = dp + cost.gamma^t*( dLdm(:)'*dmdp + dLdS(:)'*dSdp )'...    % discounted deriv of state  cost w.r.t. policy hyperparams
                 + cost.gamma^t*(dLadp)';                                    % discounted (direct) deriv of energy cost w.r.t. policy params since it is directly influenced by it.

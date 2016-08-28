@@ -42,7 +42,7 @@ for k = 1:K
   Mx{k}(:,1) = m;
   Sx{k}(:,:,1) = S;
   [ma, sa, ~] = policy.fcn(policy, m(poli), S(poli,poli));
-  [L(k,1), ~, ~, v]  = cost.fcn(cost, m, S, ma, policy);
+  [L(k,1), ~, ~, v]  = cost.fcn(cost, m, S, ma, sa);
   s(k,1) = sqrt(v);
   Mcon{k}(:,1) = ma;
   Scon{k}(:,:,1) = sa;
@@ -50,7 +50,7 @@ for k = 1:K
     [m, S] = plant.prop(m, S, plant, dynmodel, policy);	     % get next state
     
     [ma, sa, ~] = policy.fcn(policy, m(poli), S(poli,poli));
-    [L(k,t+1), ~, ~, v]  = cost.fcn(cost, m, S, ma, policy);  
+    [L(k,t+1), ~, ~, v]  = cost.fcn(cost, m, S, ma, sa);  
     s(k,t+1) = sqrt(v);
     
     Mx{k}(:,t+1) = m;

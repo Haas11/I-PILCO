@@ -117,12 +117,12 @@ else                                                                    % otherw
                 % Partial Derivatives and Cost:
                 [L(k,t), dLdm, dLdS] = cost.fcn(cost, m_out, S_out, ...
                     ma, sa, dmadm, dmads, dsadm, dsads, plant);                 % predictive cost (1) 	dLdm = [1 x D], dLdS = [1 x D^2]
-                L(k,t) = cost.gamma^t*L(k,t);                                       % discounted predicted cost
+                L(k,t) = cost.gamma^t*L(t);                                       % discounted predicted cost
                 
                 % Explicit Derivatives:
                 dLadp = cost.ep*(2*ma'*iT*dmadp + reshape(iT,1,[])*dsadp);
                 
-                dp(:,k) = dp(:,k) + cost.gamma^t*( dLdm(:)'*dmdp + dLdS(:)'*dSdp )'...    % discounted deriv of state  cost w.r.t. policy hyperparams
+                dp = dp + cost.gamma^t*( dLdm(:)'*dmdp + dLdS(:)'*dSdp )'...    % discounted deriv of state  cost w.r.t. policy hyperparams
                     + cost.gamma^t*(dLadp)';                                    % discounted (direct) deriv of energy cost w.r.t. policy params since it is directly influenced by it.
                 
                 dmOdp = dmdp; dSOdp = dSdp;                                     % bookkeeping

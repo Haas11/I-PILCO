@@ -119,7 +119,7 @@ actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]', 'ref_x','ref_y'};%, 'Kp_{rot} 
 
 %% 2. Set up the scenario
 % General:
-T = 5.0;                % [s] Rollout time
+T = 10.0;                % [s] Rollout time
 N = 30;                            % no. of controller optimizations
 Ntest = 3;                         % no. of roll outs to test controller quality
 J = 2;                             % no. of initial training rollouts
@@ -252,19 +252,18 @@ plant.startStateInterval = startStateInterval;
 
 %% 4. Set up the policy structure
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
-policy.maxU  = [250/2 250/2, 0.005  0.005];
-policy.minU  = [10    10,   -0.005 -0.005];
+maxVel = 0.25;         % maximum Cartesian velocity
+policy.maxU  = [250/2 250/2, dt*maxVel  dt*maxVel];
+policy.minU  = [10    10,   -dt*maxVel -dt*maxVel];
 policy.impIdx = [1, 2]; 			% non-negative indices of policy outputs (saturate + translate)
 policy.refIdx = [3, 4];             % reference indices (only saturate)
+policy.SNR = 100;
 Du = length(policy.maxU);
+translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
 
-seedMatrix = 1:1:J*length(policy.impIdx);
-seedMatrix = reshape(seedMatrix,J,[]);
-
-aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 6, 0.3);
+aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 7, 0.2);
 
 nc = 25;
-policy.SNR = 100;        % signal-to-noise ratio (std_f/std_n)
 policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
 policy.p.targets = 0.1*randn(nc, length(policy.maxU));                                         % init. policy targets 
 policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]

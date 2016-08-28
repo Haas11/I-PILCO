@@ -24,11 +24,11 @@ figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
     clf(figHandles(i));
 end
-settings_ST_puma;                  % load scenario-specific settings
+settings_ST;                  % load scenario-specific settings
 ep=num2str(cost.ep);
 expl=num2str(cost.expl);
 basename = strcat('ST_',date,'_','conGP-','_ep-0p',ep(strfind(ep,'.')+1:end),...
-    '_expl-0p',expl(strfind(expl,'.')+1:end),'-');      % filename used for saving data
+    '_expl-0p',expl(strfind(expl,'.')+1:end),'-','K-',num2str(K));      % filename used for saving data
 
 % numerically test my_gSat for proper means, variances and gradients
 if diffChecks && satCheck,    gSinSatT(@my_gSat); end
@@ -112,7 +112,7 @@ realWorld.std(1) = std(trialAcumCost{1},0,2);   % flag: 0 = n-1, 1=n
 
 if isempty(find(insertSuccess{1}==2,2))   % None Success
     scoreCard(1) = 0;
-elseif length(find(insertSuccess{1}==2,2))==J
+elseif all(insertSuccess{1}==2)
     scoreCard(1) = 2;                 % All Success
 else
     scoreCard(1) = 1;                 % Partial Success
@@ -122,7 +122,7 @@ jj=J; initTrial = 0;
 
 %% 3. Controlled learning (N iterations)
 fprintf('\nPILCO Learning started\n--------------------------------\n');
-for j=1:N
+for j=2:N
     my_trainDynModel;       % train (GP) dynamics model
     my_learnPolicy;         % update policy
     my_applyController;     % apply controller to system

@@ -1,4 +1,4 @@
-
+ 
 %% link3_learnImp.m
 % *Summary:* Main file for learning planar Peg-in-Hole insertion task.
 % Probabilistic model-based RL,
@@ -17,15 +17,15 @@
 % expll = [-0.1 -0.2 -0.4 -0.6 -0.8];
 
 %% 1. Initialization
-clear; clc;
+clear -runCount; clc;
 figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
     clf(figHandles(i));
 end
-settings_S_simple;                  % load scenario-specific settings
+settings_S_GP10;                  % load scenario-specific settings
 ep=num2str(cost.ep);
 expl=num2str(cost.expl);
-basename = strcat('simple_',date,'_','conLin-','_ep-0p',ep(strfind(ep,'.')+1:end),...
+basename = strcat('S_',date,'_','conLin-','_ep-0p',ep(strfind(ep,'.')+1:end),...
     '_expl-0p',expl(strfind(expl,'.')+1:end),'-');      % filename used for saving data
 
 % numerically test my_gSat for proper means, variances and gradients
@@ -69,7 +69,7 @@ for jj = 1:J
         hold on;
         a = xx(:,end-Du+1:end);
         for i=1:Du
-            subplot(ceil(Du/sqrt(Du)),ceil(sqrt(Du)),i);
+            subplot(2,1,i);
             hold on;
             stairs(1:length(a(:,i)),a(:,i),strcat(colorVec{jj},'--'));
             legend(iterVec{1:jj});
