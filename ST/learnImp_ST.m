@@ -12,14 +12,10 @@
 % # Controlled learning (train dynamics model, policy learning, policy
 % application)
 
-%% Code
-% epp = [0.0001 0.001 0.01 0.1 1];
-% expll = [-0.1 -0.2 -0.4 -0.6 -0.8];
-
 %% 1. Initialization
 clear all;
 clc;
-global initTrial vert fac
+global initTrial
 figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
     clf(figHandles(i));
@@ -122,7 +118,7 @@ jj=J; initTrial = 0;
 
 %% 3. Controlled learning (N iterations)
 fprintf('\nPILCO Learning started\n--------------------------------\n');
-for j=2:N
+for j=1:N
     my_trainDynModel;       % train (GP) dynamics model
     my_learnPolicy;         % update policy
     my_applyController;     % apply controller to system

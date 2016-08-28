@@ -17,14 +17,13 @@
 % expll = [-0.1 -0.2 -0.4 -0.6 -0.8];
 
 %% 1. Initialization
-clear all;
 clc;
 global initTrial vert fac
 figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
     clf(figHandles(i));
 end
-settings_ST;                  % load scenario-specific settings
+settings_ST_GP50;                  % load scenario-specific settings
 ep=num2str(cost.ep);
 expl=num2str(cost.expl);
 basename = strcat('ST_',date,'_','conGP-','_ep-0p',ep(strfind(ep,'.')+1:end),...

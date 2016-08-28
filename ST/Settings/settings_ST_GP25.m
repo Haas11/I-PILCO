@@ -84,8 +84,8 @@ diffChecks = 0;  diffTol   = 1e-3;  checkFailed = 0;
 conCheck   = 0;  gpCheck   = 0;     propCheck   = 0;    % GP check = very heavy!
 valueCheck = 1;  satCheck  = 0;     lossCheck   = 0;
 stateNames = {'theta1','theta1','theta1','dtheta1','dtheta1','dtheta1',...
-    'xe_x','xe_y','xe_z','alpha','gamma','phi','dxe_x','dxe_y','dxe_z',...
-    'dalpha','dgamma','dphi','Fx','Fy','Fz','Tx','Ty','Tz','t'};
+    'x','y','z','\alpha','\beta','\gamma','dx/dt','dy/dt','dz/dt',...
+    'd\alpha}','d\beta}','d\gamma}','f_x','f_y','f_z','\tau_x','\tau_y','\tau_z','t','\sigma_f','\sigma_w'};
 
 if diffChecks
     fprintf('==================================\n'); %#ok<UNRCH>
@@ -95,7 +95,7 @@ if diffChecks
     fprintf('\n==================================\n\n');
 end
 
-opt.verbosity = 3;                      % optimization verbosity      [0-3]
+opt.verbosity = 1;                      % optimization verbosity      [0-3]
 plotting.verbosity = 2;                 % plotting verbosity          [0-3]
 
 %% 1. Define state indices
@@ -119,15 +119,15 @@ refi    = [];                                           % indices for which to e
 ref_select = [1 2 7 8 13 14];                           % indices of reference corresponding to dyno    [xe dxe F]
 
 dynoTitles = stateNames(indices(dyno));
-actionTitles = {'Kp_x  [N/m]', 'Kp_{y/z}  [N/m]', 'ref_x','ref_y'};%, 'Kp_{rot} [Nm/rad]'};
+actionTitles = {'Kp_x  [N/m]', 'Kp_{y}  [N/m]', 'x_{ref}','y_{ref}'};%, 'Kp_{rot} [Nm/rad]'};
 
 %% 2. Set up the scenario
 % General:
 T = 10.0;                % [s] Rollout time
-N = 30;                            % no. of controller optimizations
+N = 25;                            % no. of controller optimizations
 Ntest = 3;                         % no. of roll outs to test controller quality
-J = 2;                             % no. of initial training rollouts
-K = 2;                             % no. of initial states for which we optimize
+J = 1;                             % no. of initial training rollouts
+K = 1;                             % no. of initial states for which we optimize
 
 colorVec = {'r','b','g','k','m','c','y','r-.','b-.','g-.','k-.','m-.','c-.','y-.',...
     'r:','b:','g:','k:','m:','c:','y:','r--','b--','g--','k--','m--','c--','y--'};
@@ -194,7 +194,7 @@ aR_init{3} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
 initialMu0 = [mu0; mu01; mu02];
 
 initPredVar = 0.001^2;                               % initial state variance around mean
-startStateInterval = [0 0.10 0 0 0 0]';             % interval for which start states may vary [x y z]
+startStateInterval = [0 0 0 0 0 0]';             % interval for which start states may vary [x y z]
 mu0Sim = mu0(dyno);                                 % initial mean for simulation
 S0Sim = diag(ones(1,length(dyno))*initPredVar);     % covariance matrix of initial state distribution during simulation 
 
@@ -235,6 +235,7 @@ disp(xhole)
 
 %% 3. Set up the plant structure
 outputNoiseSTD = ones(1,length(odei))*0.0017.^2;                          % noise added to odei indicies in simulation
+outputNoiseSTD(1,robot.n+1:robot.n*2) = 0.0001.^2;                          % noise added to odei indicies in simulation
 outputNoiseSTD(1,end-5:end) = 0.1^2;
 
 plant.noise = diag(outputNoiseSTD);
@@ -269,7 +270,7 @@ aK_init = genInitActions(policy, J, 2, actionTitles, t_pilco, H);
 % aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 6, 0.2);
 % aK_init = genInitActions(policy, J, 4, actionTitles, t_pilco, 3, 0.5);
 
-nc = 50;
+nc = 25;
 policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
 policy.p.targets = 0.1*randn(nc, length(policy.maxU));                                         % init. policy targets 
 policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]
@@ -291,13 +292,13 @@ iT = inv(quadraticWidth);
 iT(nonIdx,nonIdx)= 0;    
 cost.iT = iT;
 
-cost.sub{1}.fcn     = @my_lossSat;
+cost.sub{1}.fcn     = @lossSat_2dPIH;
 cost.sub{1}.losi    = [1];                        % indicies for saturating cost states
 cost.sub{1}.target  = (xhole(1) + [0.05])';   % target state
 cost.sub{1}.width   = 0.05;
 cost.sub{1}.angle   = plant.angi;
 
-cost.sub{2}.fcn     = @my_lossSat;
+cost.sub{2}.fcn     = @lossSat_2dPIH;
 cost.sub{2}.losi    = [5 6];                        % indicies for saturating cost states
 cost.sub{2}.target  = [0 0];   % target state
 cost.sub{2}.width   = 25;
@@ -317,7 +318,7 @@ compareToFullModel = true;
 %% 7. Parameters for policy optimization
 opt.fh = 1;
 opt.method = 'BFGS';                    % 'BFGS' (default), 'LBFGS' (x>1000), 'CG'
-opt.length = 25;                        % (+): max. number of line searches
+opt.length = 50;                        % (+): max. number of line searches
 opt.MFEPLS = 25;                        % max. number of function evaluations per linesearch
 % opt.MSR = 100;                        % max. slope ratio (default=100)
 

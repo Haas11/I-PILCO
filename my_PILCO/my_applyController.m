@@ -78,7 +78,7 @@ if plotting.verbosity > 0
         set(0,'CurrentFigure',3);
     end
     hold on;
-    stairs(1:length(realCost{J+j}),realCost{J+j},'r'); hold on;
+    stairs((1:length(realCost{J+j}))*plant.dt,realCost{J+j},'r'); hold on;
     for ii=1:Ntest
         stairs((1:length(testCosti{ii}))*plant.dt,testCosti{ii},'g');
         hold on;
@@ -107,7 +107,6 @@ if plotting.verbosity > 0
         stairs((1:length(a(:,i)))*plant.dt,a(:,i),colorVec{J+j});
         legend(iterVec{1:J+j});
         xlabel('\fontsize{14}Time');     ylabel(strcat('\fontsize{14}',actionTitles{i}),'interpreter','Tex');
-        axis tight
     end
     
     % COST OVER ALL ITERATIONS:
@@ -159,7 +158,7 @@ if plotting.verbosity > 0
                 set(0,'CurrentFigure',7);
             end
             hold on; grid on;
-            stairs(1:length(realCost{J+j}),realCost{J+j},colorVec{J+j});            
+            stairs(1:length(realCost{J+j}),realCost{J+j},colorVec{J+j});
             legend(iterVec{1:J+j});
             title('Recorded Cost in Rollout');
             xlabel('Time [s]');     ylabel('Immediate Cost');

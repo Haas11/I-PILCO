@@ -73,5 +73,6 @@ ax.XTick = 0:1:j;
 legend(hb,'Simulated (95% conf.)','Recorded (95%)','None Success','Some Success','Full Success','Location','NorthEast');
 title(strcat('\fontsize{14}Predicted and Recorded Accumulated Cost Distributions (\color{red}K=',num2str(K),'\color{black} and \color{blue}Ntest=',num2str(Ntest),'\color{black})'));
 xlabel('\fontsize{14}Iteration #');   ylabel('\fontsize{14}Cost Distribution [\mu, \sigma]');
-set(ax,'YLim',[40 ax.YLim(2)]);
+
+% set(ax,'YLim',[10 ax.YLim(2)]);
 
