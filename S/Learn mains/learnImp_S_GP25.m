@@ -71,7 +71,7 @@ for jj = 1:J
         for i=1:Du
             subplot(2,1,i);
             hold on;
-            stairs(1:length(a(:,i)),a(:,i),strcat(colorVec{jj},'--'));
+            stairs((1:length(a(:,i)))*plant.dt,a(:,i),strcat(colorVec{jj},'--'));
             legend(iterVec{1:jj});
             xlabel('Timestep');     ylabel(actionTitles{i});
         end

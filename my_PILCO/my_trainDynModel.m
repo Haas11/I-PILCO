@@ -34,52 +34,8 @@ state_target = y(:,dyno);                                           % x_{t+1}   
 state_target(:,difi) = state_target(:,difi) - x(:,dyno(difi));      % delta_t   [H x nX]
 dynmodel.targets = state_target;                                    % prior mean = 0
 
-
 if REF_PRIOR    % prior mean = reference
-%     if ~isfield(policy,'refIdx') || isempty(policy.refIdx)  % when not learning trajectories
-%         
-% %         if size(ref_target_repeat,1) < size(x,1)
-% %             ref_target_repeat = [ref_target_repeat; ref_target]; % if not already done (debug for rerun after pauze)
-% %         end
-% %         
-% %         if j>1
-% %             if size(xx,1) ~= H                  % if rollout was terminated prematurely
-% %                 difLength = H - size(xx,1);
-% %                 ref_target_repeat = ref_target_repeat(1:end-difLength,:);
-% %             end   
-% %         end
-%         
-% %         dynmodel.targets(:,refi) = dynmodel.targets(:,refi) - ref_target_repeat(:,refi);   % targets with reference prior mean  
-% 
-%         
         dynmodel.targets(:,refi) = dynmodel.targets(:,refi) - r(:,refi);   % targets with reference prior mean  
-%         
-%     else                                                    % stiffness + trajectory learning
-%         ref_target_total = zeros((J+j-1)*H,length(dyno));
-%         
-%         for cc=1:J+j-1
-%             ma = x((cc-1)*H+1:cc*H, end-Du+1:end);                     % actions
-%             
-% %             aref_pos = ma(:,policy.refIdx);                           % policy reference positions @t+1             
-% %             for kk=1:length(policy.refIdx)
-% %                 aref_vel(:,kk) = gradient(aref_pos(:,kk),dt_pilco);  % computed reference velocities
-% %             end
-% %             aref = [aref_pos, aref_vel, zeros(H,1)];                 % reference for rollout No.#cc     ( delta[X Y dX dY Fx]_ref )
-% %             ref_target_total((cc-1)*H+1:cc*H,:) = aref;
-%             
-%             RefVel = zeros(H+1,length(policy.refIdx));
-%             
-%             deltaRef_pos = ma(:,policy.refIdx);                             % action = change in postion reference = ref_t+1 - ref_t                        
-%             RefVel(1:H,:) = deltaRef_pos/plant.dt;                          % reference velocity = change in pos ref / sampling time
-%             RefVel(H+1,:) = RefVel(end,:);
-%             
-%             deltaRef_vel = RefVel(2:H+1,:) - RefVel(1:H,:);
-%             
-%             deltaRef = [deltaRef_pos, deltaRef_vel, zeros(H,mod(length(plant.dyno),2))];    % (zeros for force indices)
-%             ref_target_total((cc-1)*H+1:cc*H,:) = deltaRef;
-%         end        
-%         dynmodel.targets = state_target - ref_target_total;   % targets with reference prior mean  (difference between difference in state and difference in reference)
-%     end   
 end
 
 D = size(dynmodel.inputs,2);     % no. of inputs
@@ -132,9 +88,3 @@ disp(['Learned output noise std : ' num2str(exp(postHyp(end,:)))]);
 % signal-to-noise ratios (values > 500 can cause numerical problems)
 disp(['SNRs                     : ' num2str(exp(postHyp(end-1,:)-postHyp(end,:)))]);
 disp(num2str(exp(postHyp)));            
-
-% if j>1
-%     disp('Change in hyperparameters: '  );
-%     disp(num2str(postHyp - preHyp));
-% end
-

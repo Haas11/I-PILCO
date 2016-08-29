@@ -139,7 +139,7 @@ if plotting.verbosity > 0
         set(0,'CurrentFigure',3);
     end
     clf(3);
-    errorbar(0:H,fantasy.mean{j},2*fantasy.std{j});
+    errorbar((0:H)*plant.dt,fantasy.mean{j},2*fantasy.std{j});
     xlabel('time step'); ylabel('immediate cost');
     drawnow;
     

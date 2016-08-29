@@ -47,22 +47,21 @@ if isfield(fantasy,'acumMean')
             'MarkerFaceColor',color(k,:),...
             'LineWidth',1.5, 'visible', 'off','MarkerSize',10);   %#ok<*SAGROW> % dummy plot for legend
     end
-<<<<<<< HEAD
     hold on;
     axis tight
-
+    
     % variance:
     h1 = errorbar(0,realWorld.mean(1),2*realWorld.std(1),'b--','LineWidth',1.2);
     for i=1:j
         errorbar(i,realWorld.mean(i+1),2*realWorld.std(i+1),'b','LineWidth',1.2,'AlignVertexCenters','on');
     end
-   
+    
     ax = gca;
     if numel(dynmodel.induce) ~= 0
         plot([(nii/H)-J, (nii/H)-J], ax.YLim,'k:');
         [x, y] = dsxy2figxy(ax, [(nii/H)-J-1, (nii/H)-J],[(ax.YLim(2) - ax.YLim(1))/7, (ax.YLim(2) - ax.YLim(1))/5]);
-        a = annotation('textarrow',x,y,'String', 'Beginning of sparse model');
-        a.FontSize = 14;
+        anno = annotation('textarrow',x,y,'String', 'Beginning of sparse model');
+        anno.FontSize = 14;
     end
     
     %%
@@ -70,7 +69,7 @@ if isfield(fantasy,'acumMean')
     hb(2) = plot(0,0,'b','visible','off','MarkerSize',10,'LineWidth', 1.5);     % recorded
     
     ax.XTick = 0:1:j;
-    % ax.YLim = [fantasy.acumMean(1)-2.1*fantasy.acumStd(1), fantasy.acumMean(1)+2.1*fantasy.acumStd(1)];
+    set(ax,'YLim',[min(fantasy.acumMean(1:j)-2.1*fantasy.acumStd(1:j)), max(fantasy.acumMean(1:j)+2.1*fantasy.acumStd(1:j))]);
     
     legend(hb,'Simulated (95% conf.)','Recorded (95%)','None Success','Some Success','Full Success','Location','NorthEast');
     title(strcat('\fontsize{14}Predicted and Recorded Cost per Iteration.  (\color{red}K=',num2str(K),'\color{black} and \color{blue}Ntest=',num2str(Ntest),'\color{black})'));
@@ -105,39 +104,35 @@ else
     title('Accumulated Rollout Cost');   xlabel('Learning iteration');   ylabel('Total Cost');
     ax = gca; ax.XTick = 1:1:J+j;
     
-end
-=======
     hb(k+2) = plot(0,0,markerStyle{k},...
         'MarkerEdgeColor',[0 0 1],...
         'MarkerFaceColor',color(k,:),...
         'LineWidth',1.5, 'visible', 'off','MarkerSize',10);   %#ok<*SAGROW> % dummy plot for legend
-end
-hold on;
-
-% variance:
-if Ntest > 1
-    h1 = errorbar(0,realWorld.mean(1),2*realWorld.std(1),'b--','LineWidth',1.2);
-    for i=1:j
-        errorbar(i,realWorld.mean(i+1),2*realWorld.std(i+1),'b','LineWidth',1.2,'AlignVertexCenters','on');
+    hold on;
+    
+    % variance:
+    if Ntest > 1
+        h1 = errorbar(0,realWorld.mean(1),2*realWorld.std(1),'b--','LineWidth',1.2);
+        for i=1:j
+            errorbar(i,realWorld.mean(i+1),2*realWorld.std(i+1),'b','LineWidth',1.2,'AlignVertexCenters','on');
+        end
     end
+    % connecting line
+    plot(0:j,realWorld.mean(1:j+1),'b-.','LineWidth',0.5);
+    
+    ax = gca;
+    % start of inducing inputs:
+    if numel(dynmodel.induce) ~= 0
+        plot([(nii/H)-J, (nii/H)-J],ax.YLim,'k:');
+    end
+    %%
+    hb(1) = plot(0,0,'r--','visible','off','MarkerSize',10,'LineWidth', 1.5);     % predicted
+    hb(2) = plot(0,0,'b-.','visible','off','MarkerSize',10,'LineWidth', 1.5);     % recorded
+    
+    ax.XTick = 0:1:j;
+    set(ax,'YLim',[min(fantasy.acumMean(1:j)-2.1*fantasy.acumStd(1:j)), max(fantasy.acumMean(1:j)+2.1*fantasy.acumStd(1:j))]);
+    
+    legend(hb,'Simulated (95% conf.)','Recorded (95%)','None Success','Some Success','Full Success','Location','NorthEast');
+    title(strcat('\fontsize{14}Predicted and Recorded Accumulated Cost Distributions (\color{red}K=',num2str(K),'\color{black} and \color{blue}Ntest=',num2str(Ntest),'\color{black})'));
+    xlabel('\fontsize{14}Iteration #');   ylabel('\fontsize{14}Cost Distribution [\mu, \sigma]');
 end
-% connecting line
-plot(0:j,realWorld.mean(1:j+1),'b-.','LineWidth',0.5);
-
-ax = gca;
-% start of inducing inputs:
-if numel(dynmodel.induce) ~= 0
-    plot([(nii/H)-J, (nii/H)-J],ax.YLim,'k:');
-end
-%%
-hb(1) = plot(0,0,'r--','visible','off','MarkerSize',10,'LineWidth', 1.5);     % predicted
-hb(2) = plot(0,0,'b-.','visible','off','MarkerSize',10,'LineWidth', 1.5);     % recorded
-
-ax.XTick = 0:1:j; 
-set(ax,'YLim',[min(fantasy.acumMean(1:j)-2.1*fantasy.acumStd(1:j)), max(fantasy.acumMean(1:j)+2.1*fantasy.acumStd(1:j))]);
-
-legend(hb,'Simulated (95% conf.)','Recorded (95%)','None Success','Some Success','Full Success','Location','NorthEast');
-title(strcat('\fontsize{14}Predicted and Recorded Accumulated Cost Distributions (\color{red}K=',num2str(K),'\color{black} and \color{blue}Ntest=',num2str(Ntest),'\color{black})'));
-xlabel('\fontsize{14}Iteration #');   ylabel('\fontsize{14}Cost Distribution [\mu, \sigma]');
-
->>>>>>> 3d3e9760e3b59862bb2214d196a0e37393dfd646

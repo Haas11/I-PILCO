@@ -79,7 +79,7 @@ if plotting.verbosity > 0
         set(0,'CurrentFigure',3);
     end
     hold on;
-    stairs(1:length(realCost{J+j}),realCost{J+j},'r'); hold on;
+    stairs((1:length(realCost{J+j}))*plant.dt,realCost{J+j},'r'); hold on;
     for ii=1:Ntest
         stairs((1:length(testCosti{ii}))*plant.dt,testCosti{ii},'g');
         hold on;
