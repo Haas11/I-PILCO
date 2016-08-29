@@ -68,10 +68,9 @@ hb(1) = plot(0,0,'r--','visible','off','MarkerSize',10,'LineWidth', 1.5);     % 
 hb(2) = plot(0,0,'b-.','visible','off','MarkerSize',10,'LineWidth', 1.5);     % recorded
 
 ax.XTick = 0:1:j; 
-% ax.YLim = [fantasy.acumMean(1)-2.1*fantasy.acumStd(1), fantasy.acumMean(1)+2.1*fantasy.acumStd(1)];
+set(ax,'YLim',[min(fantasy.acumMean(1:j)-2.1*fantasy.acumStd(1:j)), max(fantasy.acumMean(1:j)+2.1*fantasy.acumStd(1:j))]);
 
 legend(hb,'Simulated (95% conf.)','Recorded (95%)','None Success','Some Success','Full Success','Location','NorthEast');
 title(strcat('\fontsize{14}Predicted and Recorded Accumulated Cost Distributions (\color{red}K=',num2str(K),'\color{black} and \color{blue}Ntest=',num2str(Ntest),'\color{black})'));
 xlabel('\fontsize{14}Iteration #');   ylabel('\fontsize{14}Cost Distribution [\mu, \sigma]');
-set(ax,'YLim',[40 ax.YLim(2)]);
 

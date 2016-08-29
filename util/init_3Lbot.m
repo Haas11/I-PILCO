@@ -1,5 +1,5 @@
 l1 = 0.4;       l2 = 0.4;       l3 = 0.4;          % link lengths
-m1 = 0.75;      m2 = 0.75;      m3 = 0.75;             % link masses
+m1 = 1;      m2 = 1;      m3 = 1;             % link masses
 Tc1 = [0 0];    Tc2 = [0 0];    Tc3 = [0 0];        % link coulomb friction
 Jm1 = 1e-4;     Jm2 = 1e-4;     Jm3 = 1e-4;         % motor inertia
 B1 = 1e-4;      B2 = 1e-4;      B3 = 1e-4;          % motor viscous friction

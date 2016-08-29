@@ -39,8 +39,10 @@ if ~peg
     if robot.n==6
         q0 = robot.ikine6s(H0);
     else
-        q0 = robot.ikine(H0,q0_est,[1 1 0 0 0 1],'pinv');
+%         q0 = robot.ikine(H0,q0_est,[1 1 0 0 0 1],'pinv');
+        q0 = robot.ikcon(H0,q0_est);%,[1 1 0 0 0 1],'pinv');
     end
+    
     H0 = robot.fkine(q0);   
     Hf = transl(xhole);
     
