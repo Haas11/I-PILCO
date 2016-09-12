@@ -16,7 +16,7 @@ clf;
 
 % variances:
 if j==1 %#ok<*IJCL>
-    errorbar(1, fantasy.acumMean(1), 2*fantasy.acumStd(1), 'r','LineWidth',1.2);
+    errorbar(1:j, fantasy.acumMean(1:j), 2*fantasy.acumStd(1:j), 'r','LineWidth',1.2);
     grid on;
 else
     shadedplot(1:j, fantasy.acumMean(1:j)-2*fantasy.acumStd(1:j), fantasy.acumMean(1:j)+2*fantasy.acumStd(1:j), [1 0.75 0.75], 'r'); % 95[%] confidence intervals
@@ -58,21 +58,24 @@ end
 % connecting line
 plot(0:j,realWorld.mean(1:j+1),'b-.','LineWidth',0.5);
 
-ax = gca;
-% start of inducing inputs:
-if numel(dynmodel.induce) ~= 0
-    plot([(nii/H)-J, (nii/H)-J],ax.YLim,'k:');
-end
+
 %%
 hb(1) = plot(0,0,'r--','visible','off','MarkerSize',10,'LineWidth', 1.5);     % predicted
 hb(2) = plot(0,0,'b-.','visible','off','MarkerSize',10,'LineWidth', 1.5);     % recorded
 
-ax.XTick = 0:1:j; 
-% ax.YLim = [fantasy.acumMean(1)-2.1*fantasy.acumStd(1), fantasy.acumMean(1)+2.1*fantasy.acumStd(1)];
+ax = gca;
 
+ax.XTick = 0:1:j; 
+ax.YLim = [fantasy.acumMean(1)-2.1*fantasy.acumStd(1), fantasy.acumMean(1)+2.1*fantasy.acumStd(1)];
+ax.FontSize = 16;
+% start of inducing inputs:
+% if numel(dynmodel.induce) ~= 0
+%     plot([(nii/H)-J, (nii/H)-J],ax.YLim,'k:');
+% end
+axis tight
 legend(hb,'Simulated (95% conf.)','Recorded (95%)','None Success','Some Success','Full Success','Location','NorthEast');
-title(strcat('\fontsize{14}Predicted and Recorded Accumulated Cost Distributions (\color{red}K=',num2str(K),'\color{black} and \color{blue}Ntest=',num2str(Ntest),'\color{black})'));
-xlabel('\fontsize{14}Iteration #');   ylabel('\fontsize{14}Cost Distribution [\mu, \sigma]');
+title(strcat('Predicted and Recorded Roll-Out Distributions (\color{red}K=',num2str(K),'\color{black} and \color{blue}Ntest=',num2str(Ntest),'\color{black})'));
+xlabel('Iteration #');   ylabel('Expected Returns');
 
 % set(ax,'YLim',[10 ax.YLim(2)]);
 
