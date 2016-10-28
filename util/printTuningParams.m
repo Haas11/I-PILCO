@@ -38,7 +38,7 @@ else
     fprintf('RBF controller\n');
     fprintf('No. of policy kernels: \t\t\t%i \n\n', nc)
     fprintf('Inputs: \t\t\t')
-    disp(stateNames(indices(dynot(poli))))
+    disp(stateNames(indices(dyno(poli))))
 end
 fprintf('\nLearned parameters: \t\t');
 disp(actionTitles)

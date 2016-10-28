@@ -37,7 +37,7 @@ if K==1
     
     % 2. Predict state trajectory from p(x0) and compute cost trajectory
     [M{j}, Sigma{j}, Mcon{j}, Scon{j}] = my_pred(policy, plant, dynmodel, mu0Sim', S0Sim, H);
-    [fantasy.mean{j}, fantasy.std{j}] =  my_calcCost(cost, M{j}, Sigma{j}, policy, plant);        
+    [fantasy.mean{j}, fantasy.std{j}] =  my_calcCost(cost, M{j}, Sigma{j}, policy, plant);
 else
     % randomize multiple start states
     mu0MultiSim = mu0Sim';
@@ -56,7 +56,7 @@ else
     Sigma{j} = S_multi{j}{1};
     
     Mcon{j} = Mcon_multi{j}{1};
-    Scon{j} = Scon_multi{j}{1};    
+    Scon{j} = Scon_multi{j}{1};
 end
 
 if compareToFullModel && numel(dynmodel.induce) ~= 0
@@ -134,7 +134,7 @@ if plotting.verbosity > 0
         set(0,'CurrentFigure',3);
     end
     clf(3);
-    errorbar(0:H,fantasy.mean{j},2*fantasy.std{j});
+    errorbar((0:H)*plant.dt,fantasy.mean{j},2*fantasy.std{j});
     xlabel('time step'); ylabel('immediate cost');
     drawnow;
     
@@ -146,8 +146,13 @@ if plotting.verbosity > 0
     end
     clf(11);
     for i=1:Du       % plot the rollouts on top of predicted error bars
-        subplot(2,1,i); hold on;
-        errorbar( 1:length(Mcon{j}(i,:)), Mcon{j}(i,:), ...
+        if Du==2
+            subplot(2,1,i);
+        else
+            subplot(2,2,i);
+        end
+        hold on;
+        errorbar( (1:length(Mcon{j}(i,:)))*plant.dt, Mcon{j}(i,:), ...
             2*sqrt(squeeze(Scon{j}(i,i,:))),'r');
         axis tight
         grid on
@@ -155,7 +160,7 @@ if plotting.verbosity > 0
         title(actionTitles{i});
     end
     drawnow;
-        
+    
     % Plot overall optimization progress
     if plotting.verbosity > 1
         if ~ishandle(2)

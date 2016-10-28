@@ -1,4 +1,4 @@
-function a_init = genInitActions(policy, J, type, actionTitles, varargin)
+function a_init = genInitActions(policy, J, type, actionTitles, t, varargin)
 %genInitActions generate distributions for actions in initial rollouts.
 %
 %   three types available: 1=gaussian, 2=Uniform, 3=Random Walk (Brownian)
@@ -6,6 +6,7 @@ function a_init = genInitActions(policy, J, type, actionTitles, varargin)
 
 %% Code
 a_init = cell(1,J);
+H = length(t);
 
 % Normally distributed initial rollouts:
 if type==1
@@ -17,12 +18,11 @@ if type==1
 elseif type==2
     % Uniformly distributed initial rollouts:
     for i=1:J
-        a_init{i} = repmat(policy.minU,H,1) + repmat(policy.maxU-policy.minU,H,1).*rand(H,2);
+        a_init{i} = repmat(policy.minU,H,1) + repmat(policy.maxU.*2-policy.minU,H,1).*rand(H,length(policy.impIdx));
     end
     
 elseif type==3
-    t = varargin{1};    
-    sig_ratio = varargin{2};
+    sig_ratio = varargin{1};
     
     % Ohrnstein-Uhlenbeek Stochastic Process initial rollouts:
     ou_opts = sdeset('RandSeed',2);
@@ -49,9 +49,9 @@ else
 end
 clf(12);
 for i=1:J
-    stairs(a_init{i}); hold on;
+    stairs((1:length(a_init{i})).*(t(2)-t(1)),a_init{i}); hold on;
 end
-grid on;
+grid on; axis tight;
 title('Initial Rollout Actions')
 xlabel('Time steps'); ylabel('Actions');
 legendVec = cell(1,J*length(policy.maxU(policy.impIdx)));

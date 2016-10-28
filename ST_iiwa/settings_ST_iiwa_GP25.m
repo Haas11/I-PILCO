@@ -95,12 +95,12 @@ difi    = [1 2 3 4];                                    % difi  indicies for tra
 poli    = [1 2 3 4];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dynot)
 
 KUKA = true;        % boolean to indicate real world experiments
-REF_PRIOR  = 1;
+REF_PRIOR  = 0;
 refi = [1 2];                                 % indices for which to encode a reference as  prior mean
 ref_select = dyno;                          % indices of reference corresponding to dyno    [xe dxe F]
 
 dynoTitles = stateNames(dyno);
-actionTitles = {'Kp_{x}','Kp_{y}'};
+actionTitles = {'Kp_{x}','Kp_{y}','Ref_{x}','Ref_{y}'};
 
 %% 2. Set up the scenario
 N = 25;                            % no. of controller optimizations
@@ -117,22 +117,28 @@ t = 0:dt:T;
 H = ceil(T/dt_pilco);              % no. of timesteps per rollout
 
 % REMAINS FROM SIMULATION (DEFINED TO AVOID ERRORS)
-peg = 1;                    
 xc    = [0, 0, 0.0925, 10, 10, 10]';  % [m] environment constraint location 
 xhole = [0.75, 0.125, 0.095];      % center hole location [x, y, phi/z]      (used for judging success with KUKA)
 robot = 7;
-
-TrajMode = 2;                   % 0= free motion sim, 1=peg sim, 2=KUKA experiment with 2 way-points, 3= KUKA w/ 3 way-points
-x0    = [0.45 0 0.3];       % initial position before rollout
-x0start = [0.45 0 0.075];    % initial pose when data recording starts
 initRot = t2r(quat2tform([0 1 0 0]));
-H0 = rt2tr(initRot, x0start');
-H1 = rt2tr(initRot, [0.75 0 0.075]');         % 0.3 meters in 20 timesteps at 0.15 s = 3 seconds --> max speed = 0.1 m/s
-H2 = rt2tr(initRot, [0.75 0.125 0.075]'); 
-H3 = rt2tr(initRot, [0.775 0.125 0.075]'); 
-[mu0, S0, xe_des, dxe_des, ddxe_des, Hf, Rd, Hd]=...
-    genTrajectory(robot, TrajMode, H0, H1, H2, H3, xhole, xc, T,  dt);
+
+mode=3;                   % 0= free motion sim, 1=peg sim, 2=KUKA experiment with 2 way-points, 3= KUKA w/ 3 way-points
+H0 = rt2tr(initRot, [0.45 0 0.08]');
+H1 = rt2tr(initRot, [0.7 0.2 0.08]');         % 0.3 meters in 20 timesteps at 0.15 s = 3 seconds --> max speed = 0.1 m/s
+H2 = rt2tr(initRot, [0.7 0.05 0.08]'); 
+H3 = rt2tr(initRot, [0.775 0.16 0.08]'); 
+[mu0, S0, xe_des, dxe_des, ddxe_des, ~, ~, Hd]=...
+    genTrajectory(robot, mode, H0, H1, H2, H3, xhole, xc, T,  dt);
 Hdes = Hd;
+aR_init{1} = dxe_des(1:H,2:3)*dt;
+
+mode=3;
+H1 = rt2tr(initRot, [0.65 0 0.08]');         % 0.3 meters in 20 timesteps at 0.15 s = 3 seconds --> max speed = 0.1 m/s
+H2 = rt2tr(initRot, [0.45 0.2 0.08]'); 
+H3 = rt2tr(initRot, [0.65 0.05 0.08]'); 
+[~, ~, ~, dxe_des, ~, Hf2, Rd2, Hd2]=...
+    genTrajectory(robot, mode, H0, H1, H2, H3, xhole, xc, T,  dt);
+aR_init{2} = dxe_des(1:H,2:3)*dt;
 
 initPredVar = 1e-4;
 startStateInterval = [0 0 0 0 0 0 0]';                                        % interval for which start states may vary [x y z]
@@ -142,19 +148,20 @@ S0Sim = S0(dyno,dyno);
 if plotting.verbosity > 1
     figure(15);
     subplot(3,1,1)
-    plot(t,xe_des(:,2:4));
-    title('Motion Plans');
-    ylabel('Positions [m]');
-    grid on
+    plot(t,xe_des(:,2:4),'Linewidth',1.5);
+    [hleg1, hobj1] =legend('x','y','z','Location','NorthEast');
+    textobj = findobj(hobj1, 'type', 'text');
+    set(textobj, 'Interpreter', 'latex', 'fontsize', 16);
+    title('\fontsize{16}Motion Plans');  ylabel('\fontsize{14}Positions [m]');
+    grid on; axis tight
     subplot(3,1,2)
-    plot(t,dxe_des(:,2:end))
-    ylabel('Velocity [m/s]')
-    legend('x_e','y_e','z_e','Location','Best');
-    grid on
+    plot(t,dxe_des(:,2:4),'Linewidth',1.5)
+    ylabel('\fontsize{14}Velocity [m/s]')
+    grid on; axis tight;
     subplot(3,1,3)
-    plot(t,ddxe_des(:,2:end))
-    ylabel('Acceleration [m/s/s]'); xlabel(strcat('Time steps   (d_t = ',num2str(dt), ')'));
-    grid on
+    plot(t,ddxe_des(:,2:4),'Linewidth',1.5)
+    ylabel('\fontsize{14}Acceleration [m/s^2]'); xlabel(strcat('\fontsize{14}Time (d_t=',num2str(dt), ') [s]'),'Interpreter','Tex');
+    grid on; axis tight;
 end
 
 
@@ -174,8 +181,11 @@ plant.indices = indices;
 % GP Controller:
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  
 nc = 25;
-policy.maxU  = [250 250]./2; policy.minU  = [5 5];
-policy.impIdx = [1 2]; policy.refIdx = [];
+maxVel = 0.25;         % maximum Cartesian velocity
+policy.maxU  = [500/2 500/2, dt*maxVel  dt*maxVel];
+policy.minU  = [25    25,   -dt*maxVel -dt*maxVel];
+policy.impIdx = [1, 2]; 			% non-negative indices of policy outputs (saturate + translate)
+policy.refIdx = [3, 4]; % reference indices (only saturate)
 policy.SNR = 100;
 Du = length(policy.maxU);
 translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
@@ -188,19 +198,17 @@ policy.p.targets = randn(nc, length(policy.maxU));                              
 policy.p.hyp = ...                                                                         % GP-log hyperparameters [(d+2) x  nU ]
     repmat(log([ones(1,length(poli))*1, 1, 1/policy.SNR]'), 1, length(policy.maxU));
 
-% Linear Controller:
-% policy.fcn = @(policy,m,s)my_mixedConCat(@my_conlin,@my_mixedGSat,policy,m,s);  % linear saturating controller
-% policy.p.w = rand(Du,length(poli));
-% policy.p.b = ones(Du,1);
-% policy.remap = true;
-
 % a_init = genInitActions(policy, J, 2, actionTitles, t_pilco, 6);     % 1=gaussian, 2=uniform, 3=orhnstein-uhlenbeck
-a_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 5);     % 1=gaussian, 2=uniform, 3=orhnstein-uhlenbeck
+aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 5);     % 1=gaussian, 2=uniform, 3=orhnstein-uhlenbeck
 
+for i=1:J
+    a_init{i} = [aK_init{i}(1:H,:), aR_init{i}(1:H,:)];
+end
+    
 %% 5. Set up the cost structure
 cost.fcn   = @my_lossAdd2;                     % cost function
 cost.gamma = 1;                                % discount factor  =1 for finite horizon
-cost.expl  = -0.1;                            % exploration parameter (UCB) smoothes the value function out and simplifies the optimization problem.
+cost.expl  = 0;                            % exploration parameter (UCB) smoothes the value function out and simplifies the optimization problem.
 cost.ep  = 0.001;                              % weight
 
 idx = policy.impIdx;
@@ -212,8 +220,8 @@ iT(nonIdx,nonIdx)= 0;
 cost.iT = iT;
 
 cost.sub{1}.fcn     = @my_lossSat;
-cost.sub{1}.losi    = [1 2];                            % indicies for saturating cost states
-cost.sub{1}.target  = [0.75 0.125];                     % target state  xe=[0.75 0.125 0.095]
+cost.sub{1}.losi    = [1];                            % indicies for saturating cost states
+cost.sub{1}.target  = [0.8];                     % target state  xe=[0.75 0.125 0.095]
 cost.sub{1}.width   = 0.1;
 cost.sub{1}.angle   = plant.angi;
 
@@ -227,7 +235,7 @@ cost.sub{2}.angle   = plant.angi;
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions
 dynmodel.train  = @my_train;                % function to train dynamics model
 nii             = 300;                      % no. of inducing inputs
-dynmodel.induce = zeros(nii,0,length(dyno));           % shared/individual inducing inputs per target dim (sparse GP)
+dynmodel.induce = zeros(nii,0,1);           % shared/individual inducing inputs per target dim (sparse GP)
 noisyInputs     = false;                    % if true -> train/regress w/ assumed input noise hyperparams
 inputNoiseSTD   = [ones(1,length(dyno))*0.01^2, ones(1,length(policy.maxU))*1e-10.^2];      % starting estimate for the noisy input GP training
 dynmodel.parallel = false;                  % train individual target dimensions in parellel
@@ -237,8 +245,8 @@ trainOpt        = [200 300];                % max. number of line searches [full
 
 %% 7. Parameters for policy optimization
 opt.fh = 1;
-opt.method = 'CG';                    % 'BFGS' (default), 'LBFGS' (x>1000), 'CG'
-opt.length = 50;                        % (+): max. number of line searches
+opt.method = 'BFGS';                    % 'BFGS' (default), 'LBFGS' (x>1000), 'CG'
+opt.length = 25;                        % (+): max. number of line searches
 opt.MFEPLS = 25;                        % max. number of function evaluations per linesearch
 % opt.MSR = 100;                        % max. slope ratio (default=100)
 

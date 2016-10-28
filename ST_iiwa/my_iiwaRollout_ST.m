@@ -30,8 +30,7 @@ else
     dyno = plant.dyno;
 end
 poli = plant.poli;
-damping = [0.7 0.7 0.7 0.7 0.7 0.7];
-stiffness = [1000 1000 50 200 200 200 200];
+damping = ones(1,6)*0.7;
 
 nX = 7+7+6+1;                 % number of states = xe + dxe + F +t
 nU = length(policy.maxU);   % number of actions
@@ -46,13 +45,15 @@ prevPosRef = transl(Href(:,:,1)); posRef = prevPosRef;
 validRollout = false;
 while ~validRollout
     bufferSize = 1;                     % number of messages to ho
-    relativeVelocity = 0.1;             % [%] ratio of full capacity
+    relativeVelocity = 0.3;             % [%] ratio of full capacity
     mode = 1;                           % cartesian impedance
     tool_frame = 'peg_link_ee_kuka';    % frame used for pose commands
-    handles = initROSiiwa(bufferSize, plant.dt, relativeVelocity, 'slip', tool_frame, mode, [100 100 100 150 150 150]);
+    handles = initROSiiwa(bufferSize, plant.dt, relativeVelocity, 'slip', tool_frame, mode);
+    
     poseCommandMsg = handles.poseCommandMsg;
     jointCommandMsg = handles.jointCommandMsg;
     
+    %%
     try
         fprintf('\n --- Moving to start state --- \n');
         
@@ -63,9 +64,9 @@ while ~validRollout
             jointCommandMsg.Position.(joint) = state.JointPosition(i);
         end
         send(handles.pubJointPosition, jointCommandMsg);
-        pause(1);
         
-        q0_down = [0; 25; 0; -108; 0; 40; 0]./360.*2.*pi;       % ~[0.45 0 0.095]
+        %     q0_up = [0; 0.21; 0; -1.75; 0; 1.19; 0];              % ~[0.45 0 0.3]
+        q0_down = [0; 28; 0; -108; 0; 40; 0]./360.*2.*pi;       % ~[0.45 0 0.095]
         
         jointCommandMsg.Position.A1 = q0_down(1);
         jointCommandMsg.Position.A2 = q0_down(2);
@@ -81,7 +82,7 @@ while ~validRollout
         xe_0 = [pos; quat'];
         poseCommandMsg.Pose.Position.X = xe_0(1);
         poseCommandMsg.Pose.Position.Y = xe_0(2);
-        poseCommandMsg.Pose.Position.Z = 0.11;
+        poseCommandMsg.Pose.Position.Z = 0.095;
         poseCommandMsg.Pose.Orientation.X = xe_0(4);
         poseCommandMsg.Pose.Orientation.Y = xe_0(5);
         poseCommandMsg.Pose.Orientation.Z = xe_0(6);
@@ -91,29 +92,20 @@ while ~validRollout
         poseCommandMsg.Pose.Position.Z = xe_0(3);
         send(handles.pubCartesianPose, poseCommandMsg);
         
-        %% Perform Rollout
-%         validAnswer = false;
-%         while ~validAnswer
-%             reply = input('\nPress y to start roll-out. Press n to abort? [y/n]...','s');
-%             
-%             if strcmpi(reply,'y')
-%                 validAnswer = true;
-%             elseif strcmpi(reply,'n')
-%                 rosshutdown;
-%                 error('aborted by user');
-%             else
-%                 warning('please hit "y" or "n"');
-%             end
-%         end
-%         fprintf('Starting rollout in...\n');
-%         fprintf('\n3 \n'); beep; pause(1); fprintf('\n2 \n'); beep; pause(1); fprintf('\n1 \n'); beep; pause(1);
-%         
+        %% Perform Rollout        
+        fprintf('Starting rollout in...\n');
+        pause(1);
+        fprintf('\n5 \n'); beep; pause(1); fprintf('\n4 \n'); beep; pause(1); fprintf('\n3 \n');
+        beep; pause(1); fprintf('\n2 \n'); beep; pause(1); fprintf('\n1 \n'); beep; pause(1);
+        
         reset(handles.r);
+        
+        % loop
         t = rostime('now');
         startTime = double(t.Sec) + double(t.Nsec)/1e9;
         time = zeros(H+1,1);
         
-        for i=1:H
+        for i=1:H            
             % read state information
             [time(i), state] = readRobotState(handles, startTime, [0 0 1 1], 'QUAT');
             x(i,1:length(state.CartesianPose)) = state.CartesianPose;
@@ -125,24 +117,23 @@ while ~validRollout
                 a(i,:) = init(i,:);
             else
                 a(i,:) = policy.fcn(policy, x(i,dyno(poli))', zeros(length(poli)));
-            end
-            stiffness(policy.impIdx) = a(i,policy.impIdx);
+            end            
+            stiffness(1:policy.impIdx) = a(i,policy.impIdx);
             [handles, response] = setRobotStiffDamp(handles, 1, stiffness, damping, 0.2, 200, 1);
-            
+                        
             % send pose command
-            if response.Success
+            if response.Success               
                 if isfield(policy,'refIdx') && ~isempty(policy.refIdx)
                     deltaRef = a(i,policy.refIdx)';                  % change in position reference  (X & Y)
                     posRef(1:2) = prevPosRef(1:2) + deltaRef;       % new absolute position reference   (X & Y)
                     prevPosRef = posRef;                                        % bookkeepping
-                    posCommand = max([0.45; -0.1; 0.05], min([0.775; 0.15; 0.75],posRef));      % new (saturated) position command
+                    posCommand = posRef; 
                     quatCommand = [0 1 0 0];
                 else
                     posCommand = transl(Href(:,:,i));              % position Vector
                     quatCommand = [0 1 0 0];
                 end
-                r(i,1:length([posCommand', quatCommand])) = [posCommand', quatCommand];
-                
+                r(i,1:length([posCommand', quatCommand])) = [posCommand', quatCommand];                
                 poseCommandMsg.Pose.Position.X = posCommand(1);
                 poseCommandMsg.Pose.Position.Y = posCommand(2);
                 poseCommandMsg.Pose.Position.Z = posCommand(3);
@@ -150,7 +141,7 @@ while ~validRollout
                 poseCommandMsg.Pose.Orientation.Y = quatCommand(2);
                 poseCommandMsg.Pose.Orientation.Z = quatCommand(3);
                 poseCommandMsg.Pose.Orientation.W = quatCommand(4);
-                send(handles.pubCartesianPose,poseCommandMsg);                  % send service request
+                send(handles.pubCartesianPose,poseCommandMsg);              % send service request                
                 
             elseif ~isempty(response.Error)
                 error('SmartServo Service not reached in time: %s', response.Error);
@@ -162,28 +153,23 @@ while ~validRollout
         end
     catch me
         assignin('base', 'me', me);
+        disp(me);
         rosshutdown;
-        disp(me.stack.file)
-        disp(me.stack.line)
     end
     
     [time(H+1), state] = readRobotState(handles, startTime, [0 0 1 1], 'QUAT');
     x(H+1,1:length(state.CartesianPose)) = state.CartesianPose;
     x(H+1,length(state.CartesianPose)*2+1:length(state.CartesianPose)*2+6) = state.CartesianWrench;
     r(H+1,1:length([posCommand', quatCommand])) = [posCommand', quatCommand];
-    
+        
     response.Success = false;
     while ~response.Success
         fprintf('\n --- Moving away from end-pose --- \n');
-        latestPose   = receive(handles.subCartesianPose);
-        send(handles.pubCartesianPose,latestPose);
-        pause(1);
-        [handles, response] = setRobotStiffDamp(handles, 1, [250 250 250 150 150 150], damping, 1, 200, 1);
+        [handles, response] = setRobotStiffDamp(handles, 1, [500 500 500 150 150 150], damping, 1, 200, 1);
         
         if response.Success
             latestPose   = receive(handles.subCartesianPose);
-            latestPose.Pose.Position.X = 0.6;
-            latestPose.Pose.Position.Y = 0.1;
+            latestPose.Pose.Position.X = latestPose.Pose.Position.X - 0.2;
             latestPose.Pose.Position.Z = latestPose.Pose.Position.Z + 0.1;
             send(handles.pubCartesianPose,latestPose);
             pause(1);
@@ -192,10 +178,10 @@ while ~validRollout
     
     rosshutdown;
     
-    fprintf('Timing data:\n')
-    disp(handles.r.statistics)
+    fprintf('Timing data:\n')    
+    disp(handles.r.statistics)    
     if handles.r.statistics.NumOverruns > 0
-        warning('The rollout encountered %i timing violations',handles.r.statistics.NumOverruns);
+        warning('The rollout encountered %i timing violations',handles.r.statistics.NumOverruns);        
         if handles.r.statistics.StandardDeviation > 0.1
             beep; beep; beep;
             validAnswer = false;

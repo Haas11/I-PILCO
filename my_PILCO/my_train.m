@@ -48,9 +48,9 @@ D = size(gpmodel.inputs,2);     % no. of inputs
 E = size(gpmodel.targets,2);    % no. of targets
 covfunc = {'covSum', {'covSEard', 'covNoise'}};        % specify ARD covariance
 
-curb.snr = 500;
-curb.ls = 100;
-curb.std = std(gpmodel.inputs);   % set hyp curb   std(inputs) = 0 causes inf/NaN problems!!
+curb.snr = 500;             % signal-to-noise penalty
+curb.ls = 100;              % length-scale penalty
+curb.std = std(gpmodel.inputs);  % additionally needed
 
 if ~isfield(gpmodel,'hyp')  % if we don't pass in hyper-parameters, define them
     gpmodel.hyp = zeros(D+2,E); nlml = zeros(1,E);

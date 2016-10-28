@@ -17,9 +17,6 @@ function handles = initROSiiwa(bufferSize, dt, relVelocity, overrunAction, tool_
 %       ('slip' or 'drop')
 % OPTIONAL INPUTS:
 %       Mode        - Choose specific mode to initialize into.
-%           0 = Joint Position
-%           1 = Joint Impedance
-%           2 = Cartesian Impedance
 %
 % Intializes:
 %       - ROS network connecting to iiwa LBR7
@@ -51,7 +48,7 @@ persistent CONNECTED
 if isempty(CONNECTED)
     CONNECTED = false;
 end
-    
+
 if ~CONNECTED
     validAnswer = false;
     while ~validAnswer
@@ -80,6 +77,7 @@ handles.subCartesianPose   = rossubscriber('/iiwa/state/CartesianPose','BufferSi
 handles.subCartesianWrench = rossubscriber('/iiwa/state/CartesianWrench','BufferSize', bufferSize);
 handles.subJointPosition   = rossubscriber('/iiwa/state/JointPosition','BufferSize', bufferSize);
 handles.subJointTorque     = rossubscriber('/iiwa/state/JointTorque','BufferSize', bufferSize);
+handles.subJointStiffness  = rossubscriber('/iiwa/state/JointStiffness','BufferSize', bufferSize);
 
 % publishers
 handles.pubCartesianPose = rospublisher('/iiwa/command/CartesianPose', 'IsLatching', false);   % Cartesian Pose
@@ -99,36 +97,33 @@ handles.config.Mode.RelativeVelocity = relVelocity;
 handles.r = robotics.Rate(handles.frequency);
 handles.r.OverrunAction = overrunAction;               % slip = don't skip step when violating sampling constraint, drop = skip one step
 
-fprintf('\n --- KUKA iiwa succesfully initialized --- \n');
 CONNECTED = true;
-
-handles.config.Mode.CartesianStiffness.Stiffness.X = 2500;      % [0 5000] N/m
-handles.config.Mode.CartesianStiffness.Stiffness.Y = 2500;
-handles.config.Mode.CartesianStiffness.Stiffness.Z = 2500;
-handles.config.Mode.CartesianStiffness.Stiffness.A = 150;       % [0 300] Nm/rad
-handles.config.Mode.CartesianStiffness.Stiffness.B = 150;
-handles.config.Mode.CartesianStiffness.Stiffness.C = 150;
-
-handles.config.Mode.CartesianDamping.Damping.X = 0.7;
-handles.config.Mode.CartesianDamping.Damping.Y = 0.7;
-handles.config.Mode.CartesianDamping.Damping.Z = 1;
-handles.config.Mode.CartesianDamping.Damping.A = 0.7;
-handles.config.Mode.CartesianDamping.Damping.B = 0.7;
-handles.config.Mode.CartesianDamping.Damping.C = 0.7;
-
-handles.config.Mode.NullspaceStiffness = 150;
-handles.config.Mode.NullspaceDamping = 0.7;
+fprintf('\n --- KUKA iiwa succesfully initialized --- \n');
 
 if nargin > 5
     mode = varargin{1};
     if mode==0
-        handles.config.Mode.Mode = robotics.ros.custom.msggen.iiwa_msgs.SmartServoMode.JOINTIMPEDANCE;
-        response = call(handles.client, handles.config, 'Timeout', 5);
-   
+        stiffness = ones(1,7)*1000;
+        damping = 0.7;
+        if nargin > 6
+            stiffness = varargin{2};
+            if nargin > 7
+                damping = varargin{3};
+            end
+        end
+        [handles, response] = setRobotStiffDamp(handles, mode, stiffness, ones(1,7)*damping, 0.2, 200, 1);
+        
     elseif mode==1
-        handles.config.Mode.Mode = robotics.ros.custom.msggen.iiwa_msgs.SmartServoMode.CARTESIANIMPEDANCE;                
-        response = call(handles.client, handles.config, 'Timeout', 5);      % Set Control Mode
-                
+        stiffness = [500 500 500 150 150 150];
+        damping = 0.7;
+        if nargin > 6
+            stiffness = varargin{2};
+            if nargin > 7
+                damping = varargin{3};
+            end
+        end        
+        [handles, response] = setRobotStiffDamp(handles, mode, stiffness, ones(1,6)*damping, 0.2, 200, 1);
+        
     elseif mode==2
         handles.config.Mode.Mode = robotics.ros.custom.msggen.iiwa_msgs.SmartServoMode.CONSTANTFORCE;
         response = call(handles.client, handles.config, 'Timeout', 5);

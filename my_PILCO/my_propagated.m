@@ -42,7 +42,7 @@
 function [Mnext, Snext, dMdm, dSdm, dMds, dSds, dMdp, dSdp, Mcon, Scon] = ...
     my_propagated(m, s, plant, dynmodel, policy, varargin)
 %% Code
-global diffChecks diffTol gpCheck REF_PRIOR TIME_INPUT
+global diffChecks diffTol gpCheck REF_PRIOR FIRST
 GPgradTypes = {'dMdm','dMds',       'dSdm','dSds',       'dVdm','dVds'};
 
 % persistent prevRef
@@ -55,13 +55,7 @@ if nargin == 6
 else
     t = 0;
 end
-if TIME_INPUT
-    m = [m; t];
-    s = [s, zeros(length(s),1)];
-    s = [s; zeros(1,length(s))];
-end
 
-% Retreat to only prediction:
 if nargout == 10                                  % just predict, no derivatives
     [Mnext, Snext, Mcon, Scon] = my_propagate(m, s, plant, dynmodel, policy, t);
     dMdm=[]; dSdm=[]; dMds=[]; dSds=[]; dMdp=[]; dSdp=[];
@@ -141,24 +135,6 @@ P = [zeros(D0,D2) eye(D0)]; P(difi,difi) = eye(length(difi));  P = sparse( P);
 
 % Mean:
 Mnext = P*M; 
-% if REF_PRIOR
-%     if ~isfield(policy,'refIdx') || isempty(policy.refIdx);
-%         Mnext = Mnext + REF_DIFF(t,:)';                                     % recenter around reference
-%         
-%     elseif ~isempty(policy.refIdx)
-%         ma = M(D1+1:D2);
-%         deltaRef_pos = ma(policy.refIdx,1);                                      % policy reference positions @t+1
-%         
-%         deltaRef_vel = (deltaRef_pos - prevRef)./plant.dt;                       % computed change in reference velocities
-%         deltaRef = [deltaRef_pos; 
-%                     deltaRef_vel; 
-%                     zeros(mod(length(plant.dyno),2),1)];    % (zeros for force indices)
-%         
-%         Mnext = Mnext + deltaRef;                                               % Recentered next state
-%         
-%         prevRef = deltaRef_pos;                                                 % Bookkeeping
-%     end
-% end
 if REF_PRIOR && ~isempty(refi)
     if ~isfield(policy,'refIdx') || isempty(policy.refIdx);
         Mnext(refi) = Mnext(refi) + ref(t,refi)';                                     % recenter around pre-computed reference
@@ -188,14 +164,15 @@ if REF_PRIOR && ~isempty(refi)
         prevRefVel = curRefVel;     % bookkkeeping
         prevRefPos = curRefPos;
     end
+    
+    % Variance:
+    % Sa = S(D1+1:D2,D1+1:D2);
+    % SdeltaRef_pos = Sa(policy.refIdx, policy.refIdx);
+    % Snext = P*S*P' + SdeltaRef_pos; 
+
 end
 
-% Variance:
-% Sa = S(D1+1:D2,D1+1:D2);
-% SdeltaRef_pos = Sa(policy.refIdx, policy.refIdx);
-% Snext = P*S*P' + SdeltaRef_pos; 
-
-Snext = P*S*P'; 
+Snext = P*S*P';
 Snext = (Snext+Snext')/2;
 
 

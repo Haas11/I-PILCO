@@ -19,7 +19,7 @@ figHandles = findobj('Type','figure');
 for i=1:length(figHandles);     % clear figures but retain positions
     clf(figHandles(i));
 end
-settings_S_iiwa;                  % load scenario-specific settings
+settings_ST_iiwa_GP25;                  % load scenario-specific settings
 ep=num2str(cost.ep);
 expl=num2str(cost.expl);
 basename = strcat('KUKA_',date,'_','conLin-','_ep-0p',ep(strfind(ep,'.')+1:end),...
@@ -61,7 +61,11 @@ for jj = 1:J
         hold on;
         a = xx(:,end-Du+1:end);
         for i=1:Du
-            subplot(2,1,i);
+            if Du==2
+                subplot(2,1,i);
+            else
+                subplot(2,2,i);
+            end
             hold on;
             stairs((1:length(a(:,i)))*plant.dt,a(:,i),strcat(colorVec{jj},'--'));
             legend(iterVec{1:jj});
@@ -115,13 +119,12 @@ end
 %% 3. Controlled learning (N iterations)
 fprintf('\nPILCO Learning started\n--------------------------------\n');
 jj=J;
-for j = 1:N
+for j = 16:N
     my_trainDynModel;       % train (GP) dynamics model
     my_learnPolicy;         % update policy
     my_applyController;     % apply controller to system
     
     disp(['\nControlled trial # ' num2str(j)]);
-    disp('Insertion successes: '); disp(insertSuccess);
 end
 
 %%

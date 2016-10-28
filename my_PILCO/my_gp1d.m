@@ -61,7 +61,6 @@ if numel(gpmodel.induce) == 0
     [M, S, V, dMdm, dSdm, dVdm, dMds, dSds, dVds] = gp0d(gpmodel, m, s); return;
 end
     
-
 % 1) If necessary: re-compute cached variables
 persistent iK iK2 beta oldX;
 ridge = 1e-6;                        % jitter to make matrix better conditioned

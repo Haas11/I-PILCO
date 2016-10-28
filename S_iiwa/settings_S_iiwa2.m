@@ -128,7 +128,7 @@ x0start = [0.45 0 0.075];    % initial pose when data recording starts
 initRot = t2r(quat2tform([0 1 0 0]));
 H0 = rt2tr(initRot, x0start');
 H1 = rt2tr(initRot, [0.75 0 0.075]');         % 0.3 meters in 20 timesteps at 0.15 s = 3 seconds --> max speed = 0.1 m/s
-H2 = rt2tr(initRot, [0.75 0.125 0.075]'); 
+H2 = rt2tr(initRot, [0.775 0.125 0.075]'); 
 H3 = rt2tr(initRot, [0.775 0.125 0.075]'); 
 [mu0, S0, xe_des, dxe_des, ddxe_des, Hf, Rd, Hd]=...
     genTrajectory(robot, TrajMode, H0, H1, H2, H3, xhole, xc, T,  dt);
@@ -179,23 +179,23 @@ policy.impIdx = [1 2]; policy.refIdx = [];
 policy.SNR = 100;
 Du = length(policy.maxU);
 translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
-
-a = repmat(mu0(dyno(poli)),nc,1); 
-b = repmat([xhole(poli(1:2)), 0 0],nc,1);
-
-policy.p.inputs = a + (b-a).*rand(nc,length(poli));
-policy.p.targets = randn(nc, length(policy.maxU));                                         % init. policy targets 
-policy.p.hyp = ...                                                                         % GP-log hyperparameters [(d+2) x  nU ]
-    repmat(log([ones(1,length(poli))*1, 1, 1/policy.SNR]'), 1, length(policy.maxU));
-
-% Linear Controller:
-% policy.fcn = @(policy,m,s)my_mixedConCat(@my_conlin,@my_mixedGSat,policy,m,s);  % linear saturating controller
-% policy.p.w = rand(Du,length(poli));
-% policy.p.b = ones(Du,1);
-% policy.remap = true;
-
-% a_init = genInitActions(policy, J, 2, actionTitles, t_pilco, 6);     % 1=gaussian, 2=uniform, 3=orhnstein-uhlenbeck
-a_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 5);     % 1=gaussian, 2=uniform, 3=orhnstein-uhlenbeck
+% 
+% a = repmat(mu0(dyno(poli)),nc,1); 
+% b = repmat([xhole(poli(1:2)), 0 0],nc,1);
+% 
+% policy.p.inputs = a + (b-a).*rand(nc,length(poli));
+% policy.p.targets = randn(nc, length(policy.maxU));                                         % init. policy targets 
+% policy.p.hyp = ...                                                                         % GP-log hyperparameters [(d+2) x  nU ]
+%     repmat(log([ones(1,length(poli))*1, 1, 1/policy.SNR]'), 1, length(policy.maxU));
+% 
+% % Linear Controller:
+% % policy.fcn = @(policy,m,s)my_mixedConCat(@my_conlin,@my_mixedGSat,policy,m,s);  % linear saturating controller
+% % policy.p.w = rand(Du,length(poli));
+% % policy.p.b = ones(Du,1);
+% % policy.remap = true;
+% 
+% % a_init = genInitActions(policy, J, 2, actionTitles, t_pilco, 6);     % 1=gaussian, 2=uniform, 3=orhnstein-uhlenbeck
+% a_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 5);     % 1=gaussian, 2=uniform, 3=orhnstein-uhlenbeck
 
 %% 5. Set up the cost structure
 cost.fcn   = @my_lossAdd2;                     % cost function
