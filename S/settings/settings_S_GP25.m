@@ -115,9 +115,15 @@ actionTitles = {'Kp_x  [N/m]', 'Kp_y  [N/m]'};%, 'Kp_{rot} [Nm/rad]'};
 hyperTitles = [dynoTitles, actionTitles, {'\sigma_f','\sigma_w'}];
 
 %% 2. Set up the scenario
+<<<<<<< HEAD
 dynPert = 0.15;             % [%] Perturbation of dynamics during simulation 
 dt = 0.01;                  % [s] controller sampling time
 dt_pilco = 0.1;             % [s] PILCO sampling rate 
+=======
+dynPert = 0.15;          % [%] Perturbation of dynamics during simulation 
+dt = 0.005;             % [s] controller sampling time
+dt_pilco = 0.1;          % [s] PILCO sampling rate 
+>>>>>>> d5abe78d437e0f83a378b815e55750f3b2c4c9c6
 fprintf('\nInitializing robot model');
 run init_3Lbot.m
 
@@ -129,7 +135,11 @@ xholetraj = [0.7, 0.2, 0];   % center hole location [x, y, phi/z]
 xc    = [0.65, 10, 10, 10, 10, 10]';  % [m] environment constraint location
 x0    = [0.5 0 0];
 H0    = transl(x0);      % start pose end-effector
+<<<<<<< HEAD
 H1   = transl([xhole(1) 0 0]);
+=======
+H1   = transl([xc(1) x0(2:3)]);
+>>>>>>> d5abe78d437e0f83a378b815e55750f3b2c4c9c6
 [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td]...
     = genTrajectory(robot, peg, H0, H1, 0, 0, xholetraj, xc, T, dt);
 

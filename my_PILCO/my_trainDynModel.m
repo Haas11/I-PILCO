@@ -34,9 +34,12 @@ state_target = y(:,dyno);                                           % x_{t+1}   
 state_target(:,difi) = state_target(:,difi) - x(:,dyno(difi));      % delta_t   [H x nX]
 dynmodel.targets = state_target;                                    % prior mean = 0
 
-
 if REF_PRIOR    % prior mean = reference
+<<<<<<< HEAD
     dynmodel.targets(:,refi) = dynmodel.targets(:,refi) - r(:,refi);   % targets with reference prior mean
+=======
+        dynmodel.targets(:,refi) = dynmodel.targets(:,refi) - r(:,refi);   % targets with reference prior mean  
+>>>>>>> d5abe78d437e0f83a378b815e55750f3b2c4c9c6
 end
 
 D = size(dynmodel.inputs,2);     % no. of inputs
@@ -88,6 +91,7 @@ postHyp = dynmodel.hyp;
 disp(['Learned output noise std : ' num2str(exp(postHyp(end,:)))]);
 % signal-to-noise ratios (values > 500 can cause numerical problems)
 disp(['SNRs                     : ' num2str(exp(postHyp(end-1,:)-postHyp(end,:)))]);
+<<<<<<< HEAD
 disp(num2str(exp(postHyp)));
 
 % if j>1
@@ -95,3 +99,6 @@ disp(num2str(exp(postHyp)));
 %     disp(num2str(postHyp - preHyp));
 % end
 
+=======
+disp(num2str(exp(postHyp)));            
+>>>>>>> d5abe78d437e0f83a378b815e55750f3b2c4c9c6

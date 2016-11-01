@@ -9,10 +9,11 @@ a_init = cell(1,J);
 
 % Normally distributed initial rollouts:
 if type==1
+    t = varargin{1};
     H = varargin{2};
     initMean = policy.maxU;     initVar = policy.maxU.*2;
     for i=1:J
-        a_init{i} = gaussian(initMean,diag(initVar),H)';
+        a_init{i} = [t(1:H),gaussian(initMean,diag(initVar),H)'];
     end
     
 elseif type==2

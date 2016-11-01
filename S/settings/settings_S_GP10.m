@@ -116,7 +116,7 @@ hyperTitles = [dynoTitles, actionTitles, {'\sigma_f','\sigma_w'}];
 
 %% 2. Set up the scenario
 dynPert = 0.15;          % [%] Perturbation of dynamics during simulation 
-dt = 0.01;             % [s] controller sampling time
+dt = 0.005;             % [s] controller sampling time
 dt_pilco = 0.1;          % [s] PILCO sampling rate 
 fprintf('\nInitializing robot model');
 run init_3Lbot.m
@@ -124,12 +124,12 @@ run init_3Lbot.m
 T = 10.0;                % [s] Rollout time
 t_pilco = (0:dt_pilco:T)';
 peg = 1;                 % [bool]  peg insertion trajectory
-xhole = [0.5, 0.2, 0];   % center hole location [x, y, phi/z]
-xholetraj = [0.5, 0.2, 0];   % center hole location [x, y, phi/z]
-xc    = [0.45, 10, 10, 10, 10, 10]';  % [m] environment constraint location
-x0    = [0.3 0 0];
+xhole = [0.7, 0.2, 0];   % center hole location [x, y, phi/z]
+xholetraj = [0.7, 0.2, 0];   % center hole location [x, y, phi/z]
+xc    = [0.65, 10, 10, 10, 10, 10]';  % [m] environment constraint location
+x0    = [0.5 0 0];
 H0    = transl(x0);      % start pose end-effector
-H1   = transl([0.5 0 0]);
+H1   = transl([xc(1) x0(2:3)]);
 [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td]...
     = genTrajectory(robot, peg, H0, H1, 0, 0, xholetraj, xc, T, dt);
 
@@ -255,7 +255,7 @@ cost.sub{1}.angle   = plant.angi;
 cost.sub{2}.fcn     = @my_lossSat;
 cost.sub{2}.losi    = 5;                        % indicies for saturating cost states
 cost.sub{2}.target  = 0;   % target state
-cost.sub{2}.width   = 10;
+cost.sub{2}.width   = 20;
 cost.sub{2}.angle   = plant.angi;
 
 %% 6. Set up the GP dynamics model structure

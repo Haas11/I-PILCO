@@ -44,7 +44,7 @@ testLati = cell(1,Ntest);
 testCosti = cell(1,Ntest);
 for i=1:Ntest
     [~,~,testCosti{i},testLati{i}, ~] = my_rollout(mu0, policy, H, plant, robot);
-    
+
     lengthDiff = H-size(testCosti{i},1);
     if lengthDiff==0                           % rollout was completed
         insertSuccess{j+1}(i+1) = 1;
@@ -69,6 +69,7 @@ elseif all(insertSuccess{j+1}==2)
 else
     scoreCard(j+1) = 1;                 % Partial Success
 end
+
 %% verbosity
 if plotting.verbosity > 0
     % Cost During Last Trials
@@ -77,8 +78,13 @@ if plotting.verbosity > 0
     else
         set(0,'CurrentFigure',3);
     end
+<<<<<<< HEAD
     hold on; grid minor;
     stairs((1:length(realCost{J+j}))*plant.dt,realCost{J+j},'b','Linewidth',1.2); hold on;
+=======
+    hold on;
+    stairs((1:length(realCost{J+j}))*plant.dt,realCost{J+j},'r'); hold on;
+>>>>>>> d5abe78d437e0f83a378b815e55750f3b2c4c9c6
     for ii=1:Ntest
         stairs((1:length(testCosti{ii}))*plant.dt,testCosti{ii},'g');
         hold on; 
