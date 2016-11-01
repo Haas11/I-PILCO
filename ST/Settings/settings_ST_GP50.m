@@ -139,20 +139,20 @@ for i=2:J+N
 end
 
 % Timing constraints:
-dt = 0.01;              % [s] controller sampling time
+dt = 0.005;              % [s] controller sampling time
 dt_pilco = 0.1;         % [s] PILCO sampling rate 
 t_pilco = (0:dt_pilco:T)';
 t = 0:dt:T;
 H = ceil(T/dt_pilco);              % no. of timesteps per rollout
 
 % Robot model:
-dynPert = 0.2;
+dynPert = 0.15;
 run init_3Lbot.m
 
 % Spatial constraints:
 mode = 0;    % mode
-xhole = [0.5, 0.2, 0];   % center hole location [x, y, phi/z]
-xc    = [0.45, 2, 2, 10, 10, 10]';  % [m] environment constraint location
+xhole = [0.7, 0.2, 0];   % center hole location [x, y, phi/z]
+xc    = [0.65, 2, 2, 10, 10, 10]';  % [m] environment constraint location
 
 if ~ishandle(5)         % robot animation
     figure(5);
@@ -160,10 +160,10 @@ else
     set(0,'CurrentFigure',5);
 end
 % First rollout:
-H0   = transl([0.3 0.2 0]);      % start pose end-effector (nominal start pose)
-H1   = transl([0.5 0.10 0]);
-H2 = transl(0.55, 0.25, 0);
-H3 = transl(0.6, 0.15, 0);
+H0   = transl([0.5 0 0]);      % start pose end-effector (nominal start pose)
+H1   = transl([0.7 0 0]);
+H2 = transl(0.7, 0.2, 0);
+H3 = transl(0.75, 0.2, 0);
 [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td]...
     = genTrajectory(robot, mode, H0, H1, H2, H3, xhole, xc, T, dt);
 deltaXe_des = diff(xe_des(1:length(t),2:end));

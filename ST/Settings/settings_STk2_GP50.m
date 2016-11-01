@@ -139,14 +139,14 @@ for i=2:J+N
 end
 
 % Timing constraints:
-dt = 0.01;              % [s] controller sampling time
+dt = 0.005;              % [s] controller sampling time
 dt_pilco = 0.1;         % [s] PILCO sampling rate 
 t_pilco = (0:dt_pilco:T)';
 t = 0:dt:T;
 H = ceil(T/dt_pilco);              % no. of timesteps per rollout
 
 % Robot model:
-dynPert = 0.2;
+dynPert = 0.15;
 run init_3Lbot.m
 
 % Spatial constraints:
@@ -270,7 +270,7 @@ aK_init = genInitActions(policy, J, 2, actionTitles, t_pilco, H);
 % aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 6, 0.2);
 % aK_init = genInitActions(policy, J, 4, actionTitles, t_pilco, 3, 0.5);
 
-nc = 100;
+nc = 50;
 policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
 policy.p.targets = 0.1*randn(nc, length(policy.maxU));                                         % init. policy targets 
 policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]

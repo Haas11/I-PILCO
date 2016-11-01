@@ -77,16 +77,19 @@ if plotting.verbosity > 0
     else
         set(0,'CurrentFigure',3);
     end
-    hold on;
-    stairs((1:length(realCost{J+j}))*plant.dt,realCost{J+j},'r'); hold on;
+    hold on; grid minor;
+    stairs((1:length(realCost{J+j}))*plant.dt,realCost{J+j},'b','Linewidth',1.2); hold on;
     for ii=1:Ntest
         stairs((1:length(testCosti{ii}))*plant.dt,testCosti{ii},'g');
-        hold on;
+        hold on; 
     end
-    title('\fontsize{14}Predicted (uncertain) & Rollout (deterministic) Immediate Cost');
-    xlabel('\fontsize{14}Time [s]');     ylabel('\fontsize{14}Immediate Cost');
+    ax = gca;
+    ax.XTick = 0:1:T;
+    ax.FontSize = 16;
+    axis tight
+    title('Predicted (uncertain) & Rollout (deterministic) Immediate Cost');
+    xlabel('Time [s]');     ylabel('\fontsize{14}Immediate Cost');
     legend('predicted','test','verifications');
-    axis tight;
     drawnow;
     
     % Actions over all iterations:
@@ -106,7 +109,7 @@ if plotting.verbosity > 0
         hold on;
         stairs((1:length(a(:,i)))*plant.dt,a(:,i),colorVec{J+j});
         legend(iterVec{1:J+j});
-        xlabel('\fontsize{14}Time');     ylabel(strcat('\fontsize{14}',actionTitles{i}),'interpreter','Tex');
+        xlabel('Time');     ylabel(strcat('\fontsize{14}',actionTitles{i}),'interpreter','Tex');
     end
     
     % COST OVER ALL ITERATIONS:
@@ -124,7 +127,7 @@ if plotting.verbosity > 0
         clf(11);
         for i=1:Du       % plot the rollouts on top of predicted error bars
             if Du==2
-                subplot(2,1,i)
+                subplot(2,1,i);
             else
                 subplot(ceil(Du/sqrt(Du)),ceil(sqrt(Du)),i);
             end
@@ -133,10 +136,18 @@ if plotting.verbosity > 0
                 2*sqrt(squeeze(Scon{j}(i,i,:))),'r');
             hold on;
             stairs((1:length(a(:,i)))*plant.dt,a(:,i),'b','LineWidth',1.1);
-            axis tight; grid on
-            if i==Du; xlabel('\fontsize{14}Time [s]'); end;
-            ylabel(strcat('\fontsize{14}',actionTitles{i}),'interpreter','Tex');
-            title(num2str('\fontsize{14}',actionTitles{i}));
+            axis tight; grid minor
+            if (Du==2 && i==Du) || (Du==4 && (i==Du-1 || i==Du)); xlabel('Time [s]'); end;
+            ylabel(actionTitles{i},'interpreter','Tex');
+            ax = gca;
+            ax.XTick = 0:1:T;
+            if ismember(i,policy.impIdx)
+%                 ax.YTick = 0:100:ax.YLim(2)
+%                 ax.YLim = [policy.minU(i) policy.maxU(i)*2.5];
+            else
+                % do nothing
+            end
+            ax.FontSize = 16;
         end
         drawnow;
         

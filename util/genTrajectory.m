@@ -3,13 +3,13 @@ global vert fac
 vert = ones(8,3); vert(1,1) = xc(1); vert(4:5,1) = xc(1); vert(8,1) = xc(1);
 vert(1:2,2:3) = -1; vert(3:4,3) = -1; vert(5:6,2) = -1;
 fac = [1 2 6 5;2 3 7 6;3 4 8 7;4 1 5 8;1 2 3 4;5 6 7 8];
-% if ~ishandle(5)         % robot animation
-%     figure(5);
-%     set(gcf,'units','normalized','outerposition',[0.1 0.1 0.9 0.9])
-% else
-%     set(0,'CurrentFigure',5);
-% end
-% patch('Vertices',vert,'Faces',fac,'FaceVertexCData',hsv(6),'FaceColor','flat');
+if ~ishandle(5)         % robot animation
+    figure(5);
+    set(gcf,'units','normalized','outerposition',[0.1 0.1 0.9 0.9])
+else
+    set(0,'CurrentFigure',5);
+end
+patch('Vertices',vert,'Faces',fac,'FaceVertexCData',hsv(6),'FaceColor','flat');
 
 % Test trajectory:
 t1 = 4*T/10;

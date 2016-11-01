@@ -1,80 +1,9 @@
-%% settings_Link3_learnImp.m
-% *Summary:* Script to set up impedance parameter learning for a 3-link
-% robot.
-
-%% Indices & State definitions:
-% command window:   Printed function values                     [opt  >= ?]
-% figure(1):        Optimization progress                       [opt  >= 3]
-% figure(2):        accumulated cost per iteration              [plot >= 1]
-% figure(3):        Predicted & recorded immediate cost         [plot >= 1]
-% figure(4):        Predicted & recorded state trajectories     [plot >= 1]
-% figure(5):        Robot trajectory animation                  [plot >= 3]
-% figure(6):        Rollout actions actions per iteration       [plot >= 1]
-% figure(7):        Immediate rollout cost per iteration        [plot >= 1]
-% figure(8):        Policy initialization result                [plot >= 2]
-% figure(9):        Interaction forces                          [plot >= 2]
-% figure(10):       Accumulated rollout costs                   [plot >= 1]
-
-% Full state representation
-% - angles              [jointspace]
-% - angular velocities  [jointspace]
-% - translation         [worldframe]
-% - rotation            [worldframe, euler]
-% - interaction forces  [worldframe]
-% - complex angles      [jointspace]
-% - impedance parameters (actions)
-
-%  1  theta1         angle first link
-%  2  theta2         angle second link
-%  3  theta3         angle third link
-
-%  4  dtheta1        angular velocity of 1st pendulum
-%  5  dtheta2        angular velocity of 2nd pendulum
-%  6  dtheta3        angular velocity of 2nd pendulum
-
-%  7  X              x-position end-effector in world frame
-%  8  Y              y-position end-effector in world frame
-%  9  Z              z-position end-effector in world frame
-% 10  Alpha
-% 11  Gamma
-% 12  Phi            angle around z
-
-% 13  dX             x-velocity end-effector in world frame
-% 14  dY             y-velocity end-effector in world frame
-% 15  dZ             z-velocity end-effector in world frame
-% 16  dAlpha         Alpha-angular velocity  in world frame
-% 17  dGamma         Gamma-angular velocity  in world frame
-% 18  dPhi           Phi-angular velocity    in world frame
-
-% 19  Fx             Cartesian x-force in world frame
-% 20  Fy             Cartesian y-force in world frame
-% 21  Fz             Cartesian z-force in world frame
-% 22  Fa             Cartesian alpha torque in world frame
-% 23  Fg             Cartesian gamma torque in world frame
-% 24  Fp             Cartesian phi   torque in world frame
-
-% 25  t           Cartesian stiffness in x
-% 26-27  Kp_xy           Cartesian stiffness in y
-%
-%% High-Level Steps
-% # Define state and important indices
-% # Set up scenario
-% # Set up the plant structure
-% # Set up the policy structure
-% # Set up the cost structure
-% # Set up the GP dynamics model structure
-% # Parameters for policy optimization
-% # Plotting verbosity
-% # Some array initializations
-% 
-% cost.ep = epp(count);
-% cost.expl = expll(count);
-
+function [t_train, t_learn] = timePILCOT(nc, poli, nii)
 %% Inits
 warning('on','all');
 rng(0,'twister');
 format short; format compact;
-global diffChecks REF_PRIOR 
+global diffChecks REF_PRIOR
 global diffTol conCheck gpCheck propCheck valueCheck satCheck lossCheck checkFailed
 diffChecks = 0;  diffTol   = 1e-3;  checkFailed = 0;
 conCheck   = 0;  gpCheck   = 0;     propCheck   = 0;    % GP check = very heavy!
@@ -104,9 +33,9 @@ angi    = [];                                           % angi  indicies for var
 dyno    = [7 8 13 14 19 20 25];                          % dyno  indicies for the output from the dynamics model and indicies to loss    (subset of indices)
 dyni    = [1 2 3 4 7];                              % dyni  indicies for inputs to the dynamics model                               (subset of dyno)
 difi    = [1 2 3 4];                              % difi  indicies for training targets that are differences                      (subset of dyno)
-poli    = [1 2 3 4];                                    % poli  indicies for variables that serve as inputs to the policy               (subset of dyno)
+% poli = input
 refi    = [1 2 3 4];                                 % indices for which to encode a reference as  prior mean
-REF_PRIOR  = 0;
+REF_PRIOR  = 1;
 
 ref_select = dyno(1:end-1) - 2*n;                    % indices of reference corresponding to dyno    [xe dxe F] (leave as is)
 
@@ -115,9 +44,9 @@ actionTitles = {'Kp_x  [N/m]', 'Kp_y  [N/m]'};%, 'Kp_{rot} [Nm/rad]'};
 hyperTitles = [dynoTitles, actionTitles, {'\sigma_f','\sigma_w'}];
 
 %% 2. Set up the scenario
-dynPert = 0.15;             % [%] Perturbation of dynamics during simulation 
-dt = 0.01;                  % [s] controller sampling time
-dt_pilco = 0.1;             % [s] PILCO sampling rate 
+dynPert = 0.15;          % [%] Perturbation of dynamics during simulation
+dt = 0.01;             % [s] controller sampling time
+dt_pilco = 0.1;          % [s] PILCO sampling rate
 fprintf('\nInitializing robot model');
 run init_3Lbot.m
 
@@ -140,41 +69,29 @@ T_e_init = cardatol(tr2rpy(Hd.data(:,:,1)),1,2,3);      %xyz
 if plotting.verbosity > 1
     figure(15);
     subplot(3,1,1)
-    plot(t',xe_des(:,2:4),'Linewidth',1.5);
-    title('\fontsize{14}Reference Trajectories','Interpreter','Tex');
-    ylabel('\fontsize{14}Positions [m]');
-    grid minor; hold on;
+    plot(xe_des(:,2:end));
+    title('Reference Trajectories');
+    ylabel('Positions [m]');
+    grid on
     axis tight
-    ax=gca;
-    plot([2.15 2.15],ax.YLim,'k:','Linewidth',1.5);
-%     plot([300 300],ax.YLim,'b:','Linewidth',1.2);
-
     subplot(3,1,2)
-    plot(t',dxe_des(:,2:4),'Linewidth',1.5)
-    hold on;
-    ax=gca;
-    plot([2.15 2.15],ax.YLim,'k:','Linewidth',1.5);
-    ylabel('\fontsize{14}Velocity [m/s]','Interpreter','Tex')
-    legend('x_e','y_e','z_e','contact','Location','Best');
-    axis tight 
-    grid minor; 
-%     plot([300 300],ax.YLim,'b:','Linewidth',1.2);
-
-    subplot(3,1,3)
-    plot(t',ddxe_des(:,2:4),'Linewidth',1.5)
-    ylabel('\fontsize{14}Acceleration [m/s/s]','Interpreter','Tex'); xlabel('\fontsize{14}Time [s]','Interpreter','Tex');
+    plot(dxe_des(:,2:end))
+    ylabel('Velocity [m/s]')
+    legend('x_e','y_e','z_e','Location','Best');
     axis tight
-    grid minor; hold on;
-    ax=gca;
-    plot([2.15 2.15],ax.YLim,'k:','Linewidth',1.5);
-%     plot([300 300],ax.YLim,'b:','Linewidth',1.2);
+    grid on
+    subplot(3,1,3)
+    plot(ddxe_des(:,2:end))
+    ylabel('Acceleration [m/s/s]'); xlabel(strcat('Time steps   (d_t = ',num2str(dt), ')'));
+    axis tight
+    grid on
 end
 
 initialMu0 = [mu0];
 initPredVar = 0.001^2;                               % initial state variance around mean
 startStateInterval = [0 0 0 0 0 0]';             % interval for which start states may vary [x y z]
 mu0Sim = mu0(dyno);                                 % initial mean for simulation
-S0Sim = diag(ones(1,length(dyno))*initPredVar);     % covariance matrix of initial state distribution during simulation 
+S0Sim = diag(ones(1,length(dyno))*initPredVar);     % covariance matrix of initial state distribution during simulation
 
 fprintf('\nFinal transformation: \nH^0_n(T) = \n\n');
 disp(Hf);
@@ -192,7 +109,7 @@ disp(xhole)
 H = ceil(T/dt_pilco);              % no. of timesteps per rollout
 N = 25;                            % no. of controller optimizations
 Ntest = 1;                         % no. of roll outs to test controller quality
-J = 2;                             % no. of initial training rollouts
+J = 1;                             % no. of initial training rollouts
 K = 1;                             % no. of initial states for which we optimize
 colorVec = {'r','b','g','k','m','c','y','r-.','b-.','g-.','k-.','m-.','c-.','y-.',...
     'r:','b:','g:','k:','m:','c:','y:','r--','b--','g--','k--','m--','c--','y--'};
@@ -233,14 +150,13 @@ Du = length(policy.maxU);
 translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
 
 % GP Controller:
-nc = 25;
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
-policy.p.targets = 0.1*randn(nc, length(policy.maxU));    % init. policy targets 
+policy.p.targets = 0.1*randn(nc, length(policy.maxU));    % init. policy targets
 policy.p.inputs  = gaussian(mu0Sim(poli), diag(ones(1,length(poli))*0.1), nc)';                % policy pseudo inputs   [ N  x  d ]
 policy.p.hyp = ...                                                                             % GP-log hyperparameters [(d+2) x  D ]
     repmat(log([ones(1,length(poli))*1, 1, 0.01]'), 1, length(policy.maxU));
 
-aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 8, 0.2);
+aK_init = genInitActions(policy, J, 2, actionTitles, t_pilco, H);
 
 %% 5. Set up the cost structure
 cost.fcn   = @my_lossAdd2;                       % cost function
@@ -255,7 +171,7 @@ nonIdx = find(~ismember(1:Du,idx));
 normalizer = (policy.maxU*diag(translVec)).^2;
 quadraticWidth  = diag(normalizer);          % normalization matrix for quadratic ep
 iT = inv(quadraticWidth);
-iT(nonIdx,nonIdx)= 0;    
+iT(nonIdx,nonIdx)= 0;
 cost.iT = iT;
 
 cost.sub{1}.fcn     = @my_lossSat;
@@ -273,7 +189,7 @@ cost.sub{2}.angle   = plant.angi;
 %% 6. Set up the GP dynamics model structure
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions
 dynmodel.train  = @my_train;                % function to train dynamics model
-nii             = 300;                      % no. of inducing inputs
+%nii = input
 dynmodel.induce = zeros(nii,0,1);           % shared/individual inducing inputs per target dim (sparse GP)
 noisyInputs     = false;                    % if true -> train/regress w/ assumed input noise hyperparams
 inputNoiseSTD   = [ones(1,length(dyni))*0.01^2, ones(1,length(policy.maxU))*1e-10.^2];      % starting estimate for the noisy input GP training
@@ -298,3 +214,19 @@ M = cell(N,1);  Sigma = cell(N,1); Mcon = cell(N,1); Scon = cell(N,1);
 Mfull = cell(N,1); Sfull = cell(N,1);
 insertSuccess = cell(1,N+1);    scoreCard = zeros(1,N+1);
 reference = zeros(H+1,length(dyno));
+
+
+%% Load dataset
+
+load('');
+
+%% 3. Controlled learning (N iterations)
+j=1;
+tic
+my_trainDynModel;       % train (GP) dynamics model
+t_train = toc;
+tic
+my_learnPolicy;         % update policy
+t_learn = toc;
+end
+

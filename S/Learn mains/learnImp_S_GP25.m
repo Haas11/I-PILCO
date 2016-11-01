@@ -15,7 +15,10 @@
 %% Code
 % epp = [0.0001 0.001 0.01 0.1 1];
 % expll = [-0.1 -0.2 -0.4 -0.6 -0.8];
-
+global vert fac
+vert = ones(8,3); vert(1,1) = xc(1); vert(4:5,1) = xc(1); vert(8,1) = xc(1);
+vert(1:2,2:3) = -1; vert(3:4,3) = -1; vert(5:6,2) = -1;
+fac = [1 2 6 5;2 3 7 6;3 4 8 7;4 1 5 8;1 2 3 4;5 6 7 8];
 %% 1. Initialization
 clear -runCount; clc;
 figHandles = findobj('Type','figure');
@@ -78,7 +81,7 @@ for jj = 1:J
         drawnow;              
         
         if plotting.verbosity > 2
-            q_sim = latent{jj}(:,1:robot.n);
+            q_sim = latent{jj}(15,1:robot.n);
             if ~ishandle(5)         % robot animation
                 figure(5);
             else

@@ -72,7 +72,7 @@ for jj = 1:J
         for i=1:Du
             subplot(ceil(Du/sqrt(Du)),ceil(sqrt(Du)),i);
             hold on;
-            stairs(1:length(a(:,i)),a(:,i),strcat(colorVec{jj},'--'));
+            stairs((1:length(a(:,i)))*plant.dt,a(:,i),strcat(colorVec{jj},'--'));
             legend(iterVec{1:jj});
             xlabel('Timestep');     ylabel(actionTitles{i});
         end
@@ -121,7 +121,7 @@ jj=J; initTrial = 0;
 
 %% 3. Controlled learning (N iterations)
 fprintf('\nPILCO Learning started\n--------------------------------\n');
-for j=2:N
+for j=1:N
     my_trainDynModel;       % train (GP) dynamics model
     my_learnPolicy;         % update policy
     my_applyController;     % apply controller to system

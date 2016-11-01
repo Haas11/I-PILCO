@@ -119,7 +119,7 @@ refi    = [];                                           % indices for which to e
 ref_select = [1 2 7 8 13 14];                           % indices of reference corresponding to dyno    [xe dxe F]
 
 dynoTitles = stateNames(indices(dyno));
-actionTitles = {'Kp_x  [N/m]', 'Kp_{y}  [N/m]', 'x_{ref}','y_{ref}'};%, 'Kp_{rot} [Nm/rad]'};
+actionTitles = {'Kp_x  [N/m]', 'Kp_{y}  [N/m]', 'x_{ref} [m]','y_{ref} [m]'};%, 'Kp_{rot} [Nm/rad]'};
 
 %% 2. Set up the scenario
 % General:

@@ -14,7 +14,7 @@ robot = SerialLink([link1, link2, link3], 'name', '3link-robot',...
     'base',[eye(3), zeros(3,1); zeros(1,3), 1], 'qlim',[-1, 1; -1, 1; -1, 1]*99*pi/100,...
     'tool',[eye(3), zeros(3,1); zeros(1,3), 1]);
 robot.gravity = [0, -9.81, 0];
-robot.plotopt = {'jaxes','delay',dt_pilco,'trail','y--','zoom',0.75,'scale',0.75};
+robot.plotopt = {'jaxes','delay',dt_pilco,'trail','y--','zoom',1,'scale',0.85,'floorlevel',-1};
 n = robot.n; m = 3;
 robot.fast = 1;
 

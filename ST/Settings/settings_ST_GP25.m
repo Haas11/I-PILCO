@@ -125,7 +125,7 @@ actionTitles = {'Kp_x  [N/m]', 'Kp_{y}  [N/m]', 'x_{ref}','y_{ref}'};%, 'Kp_{rot
 % General:
 T = 10.0;                % [s] Rollout time
 N = 25;                            % no. of controller optimizations
-Ntest = 3;                         % no. of roll outs to test controller quality
+Ntest = 2;                         % no. of roll outs to test controller quality
 J = 1;                             % no. of initial training rollouts
 K = 1;                             % no. of initial states for which we optimize
 
@@ -139,20 +139,20 @@ for i=2:J+N
 end
 
 % Timing constraints:
-dt = 0.01;              % [s] controller sampling time
+dt = 0.005;              % [s] controller sampling time
 dt_pilco = 0.1;         % [s] PILCO sampling rate 
 t_pilco = (0:dt_pilco:T)';
 t = 0:dt:T;
 H = ceil(T/dt_pilco);              % no. of timesteps per rollout
 
 % Robot model:
-dynPert = 0.2;
+dynPert = 0.15;
 run init_3Lbot.m
 
 % Spatial constraints:
 mode = 0;    % mode
-xhole = [0.5, 0.2, 0];   % center hole location [x, y, phi/z]
-xc    = [0.45, 2, 2, 10, 10, 10]';  % [m] environment constraint location
+xhole = [0.7, 0.2, 0];   % center hole location [x, y, phi/z]
+xc    = [0.65, 2, 2, 10, 10, 10]';  % [m] environment constraint location
 
 if ~ishandle(5)         % robot animation
     figure(5);
@@ -160,10 +160,10 @@ else
     set(0,'CurrentFigure',5);
 end
 % First rollout:
-H0   = transl([0.3 0.2 0]);      % start pose end-effector (nominal start pose)
-H1   = transl([0.5 0.10 0]);
-H2 = transl(0.55, 0.25, 0);
-H3 = transl(0.6, 0.15, 0);
+H0   = transl([0.5 0 0]);      % start pose end-effector (nominal start pose)
+H1   = transl([0.7 0.10 0]);
+H2 = transl(0.75, 0.25, 0);
+H3 = transl(0.7, 0.15, 0);
 [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td]...
     = genTrajectory(robot, mode, H0, H1, H2, H3, xhole, xc, T, dt);
 deltaXe_des = diff(xe_des(1:length(t),2:end));
@@ -171,10 +171,10 @@ aR_init{1} = timeseries(deltaXe_des',t(1:length(deltaXe_des)));
 robot.plot(mu0(1:robot.n));
 
 % Second rollout:
-H0 = transl([0.3 0.3 0]);       % start pose end-effector
-H1 = transl([0.5 0.15 0]);       
-H2 = transl(0.6, 0.25, 0);
-H3 = transl(0.55, 0.15, 0);
+H0 = transl([0.5 0 0]);       % start pose end-effector
+H1 = transl([0.75 0.15 0]);       
+H2 = transl(0.7, 0.25, 0);
+H3 = transl(0.75, 0.15, 0);
 [mu01, ~, xe_des, ~, ~, ~, ~, ~, ~]...
     = genTrajectory(robot, mode, H0, H1, H2, H3, xhole, xc, T, dt);
 deltaXe_des = diff(xe_des(1:length(t),2:end));
@@ -220,7 +220,7 @@ if plotting.verbosity > 1
 end
 
 % Environment:
-Kp_env = [4e3, 2e3 1e4, 0, 0, 0];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
+Kp_env = [1e5, 2e3 1e4, 0, 0, 0];            %[N/m]  stiffness  (x, y, z, rotx, roty, rotz)
 Kd_env = [1, 1, 1, 0, 0, 0];              %[Ns/m] damping
 
 % Display Scenario in Console:
@@ -234,8 +234,8 @@ disp(xhole)
 
 
 %% 3. Set up the plant structure
-outputNoiseSTD = ones(1,length(odei))*0.0017.^2;                          % noise added to odei indicies in simulation
-outputNoiseSTD(1,robot.n+1:robot.n*2) = 0.0001.^2;                          % noise added to odei indicies in simulation
+outputNoiseSTD = ones(1,length(odei))*0.01.^2;                          % noise added to odei indicies in simulation
+outputNoiseSTD(1,robot.n+1:robot.n*2) = 0.01.^2;                          % noise added to odei indicies in simulation
 outputNoiseSTD(1,end-5:end) = 0.1^2;
 
 plant.noise = diag(outputNoiseSTD);
@@ -258,7 +258,7 @@ plant.startStateInterval = startStateInterval;
 %% 4. Set up the policy structure
 policy.fcn = @(policy,m,s)my_mixedConCat(@congp,@my_mixedGSat,policy,m,s);  % linear saturating controller
 maxVel = 0.25;         % maximum Cartesian velocity
-policy.maxU  = [250/2 250/2, dt*maxVel  dt*maxVel];
+policy.maxU  = [100/2 100/2, dt*maxVel  dt*maxVel];
 policy.minU  = [10    10,   -dt*maxVel -dt*maxVel];
 policy.impIdx = [1, 2]; 			% non-negative indices of policy outputs (saturate + translate)
 policy.refIdx = [3, 4];             % reference indices (only saturate)
@@ -266,8 +266,8 @@ policy.SNR = 100;
 Du = length(policy.maxU);
 translVec = [ones(size(policy.impIdx)).*2, ones(size(policy.refIdx))];
 
-aK_init = genInitActions(policy, J, 2, actionTitles, t_pilco, H);
-% aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 6, 0.2);
+% aK_init = genInitActions(policy, J, 2, actionTitles, t_pilco, H);
+aK_init = genInitActions(policy, J, 3, actionTitles, t_pilco, 6, 0.2);
 % aK_init = genInitActions(policy, J, 4, actionTitles, t_pilco, 3, 0.5);
 
 nc = 25;
@@ -307,18 +307,18 @@ cost.sub{2}.angle   = plant.angi;
 %% 6. Set up the GP dynamics model structure
 dynmodel.fcn    = @my_gp1d;                    % function for GP predictions
 dynmodel.train  = @my_train;                % function to train dynamics model
-nii             = 300;                      % no. of inducing inputs
+nii             = 100;                      % no. of inducing inputs
 dynmodel.induce = zeros(nii,0,1);% shared/individual inducing inputs per target dim (sparse GP)
 noisyInputs     = false;                    % if true -> train/regress w/ assumed input noise hyperparams
 inputNoiseSTD   = [ones(1,length(dyno))*0.005^2, ones(1,length(policy.maxU))*1e-10.^2];      % starting estimate for the noisy input GP training
-dynmodel.parallel = true;                  % train individual target dimensions in parellel
+dynmodel.parallel = false;                  % train individual target dimensions in parellel
 trainOpt        = [200 300];                % max. number of line searches [full, sparse]
 compareToFullModel = true;
 
 %% 7. Parameters for policy optimization
 opt.fh = 1;
 opt.method = 'BFGS';                    % 'BFGS' (default), 'LBFGS' (x>1000), 'CG'
-opt.length = 50;                        % (+): max. number of line searches
+opt.length = 25;                        % (+): max. number of line searches
 opt.MFEPLS = 25;                        % max. number of function evaluations per linesearch
 % opt.MSR = 100;                        % max. slope ratio (default=100)
 

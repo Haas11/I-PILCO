@@ -36,7 +36,7 @@ elseif type==3
             th = ones(1,J)*0.3;
         end
     else
-        sig_ratio = 6;                          % diffusion ratio
+        sig_ratio = 5;                          % diffusion ratio
         th = ones(1,J)*0.3;
     end
     sig = repmat(policy.maxU(1)*2/sig_ratio(1),J,1);    % spread
@@ -70,11 +70,15 @@ else
 end
 clf(22);
 for i=1:J
-    stairs(a_init{i}); hold on;
+    stairs(a_init{i}(:,2:end),'Linewidt',1.5); hold on;
 end
-grid on;
-title('Initial Rollout Actions')
-xlabel('Time steps'); ylabel('Actions');
+axis tight
+grid minor;
+title('\fontsize{16}Initial Stiffness Trajectories','Interpreter','Tex');
+xlabel('\fontsize{16}Time steps [d_t = 0.1]','Interpreter','Tex'); 
+ylabel('\fontsize{16} K_P [N/m]','Interpreter','Tex');
+xt = get(gca, 'XTick');
+set(xt, 'FontSize', 16)
 legendVec = cell(1,J*length(policy.maxU(policy.impIdx)));
 for j=1:J
     for u=1:length(policy.maxU(policy.impIdx))

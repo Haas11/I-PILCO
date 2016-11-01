@@ -153,13 +153,13 @@ perturbedRobotNF.gravity = robot.gravity;
 
 % Spatial constraints:
 peg = 0;    % mode
-xhole = [0.5, 0.3, 0];   % center hole location [x, y, phi/z]
-xc    = [0.45, 0.6, 0.6, 10, 10, 10]';  % [m] environment constraint location
+xhole = [0.7, 0.3, 0];   % center hole location [x, y, phi/z]
+xc    = [0.65, 0.6, 0.6, 10, 10, 10]';  % [m] environment constraint location
 
-H0   = transl([0.30 0 0]);      % start pose end-effector
-H1   = transl([0.55 0.4 0]);   
-H2 = transl(0.6, 0.2, 0);
-H3 = transl(0.6, 0.3, 0);
+H0   = transl([0.50 0 0]);      % start pose end-effector
+H1   = transl([0.7 0.4 0]);   
+H2 = transl(0.75, 0.2, 0);
+H3 = transl(0.7, 0.3, 0);
 [mu0, S0, xe_des, dxe_des, ddxe_des, T, Hf, Rd, Td]...
     = genTrajectory(robot, peg, H0, H1, H2, H3, xhole, xc, T, dt);
 deltaXe_des = diff(xe_des(1:length(t),2:end));
@@ -230,7 +230,7 @@ disp(xhole)
 
 %% 3. Set up the plant structure
 outputNoiseSTD = ones(1,length(odei))*deg2rad(0.1).^2;                          % noise added to odei indicies in simulation
-outputNoiseSTD(1,robot.n+1:2*robot.n) = deg2rad(0.1).^2;
+outputNoiseSTD(1,robot.n+1:2*robot.n) = deg2rad(0.01).^2;
 outputNoiseSTD(1,end-5:end) = 0.1^2;
 
 plant.noise = diag(outputNoiseSTD);
@@ -321,7 +321,7 @@ compareToFullModel = true;
 %% 7. Parameters for policy optimization
 opt.fh = 1;
 opt.method = 'BFGS';                    % 'BFGS' (default), 'LBFGS' (x>1000), 'CG'
-opt.length = 25;                        % (+): max. number of line searches
+opt.length = 50;                        % (+): max. number of line searches
 opt.MFEPLS = 25;                        % max. number of function evaluations per linesearch
 % opt.MSR = 100;                        % max. slope ratio (default=100)
 
