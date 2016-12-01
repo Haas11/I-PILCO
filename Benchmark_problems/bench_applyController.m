@@ -17,14 +17,14 @@
 % TODO: CONSIDER PASSING VARIABLE START STATE BACK AND USING THAT AS IC FOR
 % PREDICTED STATE TRAJECTORY IN PREDCOST.M OR PRED.M
 
-[xx, yy, realCost{j+J}, latent{j+J}, rr] = ...
-    my_rollout(mu0, policy, H, plant, robot); %#ok<*IJCL>
+[xx, yy, realCost{j+J}, latent{j+J}] = ...
+    bench_rollout(gaussian(mu0, S0), struct('maxU',policy.maxU), H, plant, cost); %#ok<*IJCL>
 
 realAcumCost(j+J) = sum(realCost{j+J});                 % Accumulated cost
-rr = rr(:,ref_select);      % filter out the relevant reference dimensions
-rrr = rr(2:end,:);
-rrr(:,difi) = rr(2:end,difi) - rr(1:end-1,difi);    % dimensions that are differences
-r = [r; rrr];   x = [x; xx];    y = [y; yy]; %#ok<*AGROW>
+% rr = rr(:,ref_select);      % filter out the relevant reference dimensions
+% rrr = rr(2:end,:);
+% rrr(:,difi) = rr(2:end,difi) - rr(1:end-1,difi);    % dimensions that are differences
+% r = [r; rrr];   x = [x; xx];    y = [y; yy]; %#ok<*AGROW>
 
 % determine if rollout aborted, failed or successful:
 lengthDiff = H - size(realCost{j+J},1);
@@ -37,13 +37,13 @@ else
     insertSuccess{j+1}(1) = 0;
 end
 
-tempCost = [realCost{J+j}; ones(lengthDiff,1)];
+tempCost = [realCost{J+j}'; ones(lengthDiff,1)];
 
 % 2. Make many rollouts to test the controller quality / robustness?
 testLati = cell(1,Ntest);
 testCosti = cell(1,Ntest);
 for i=1:Ntest
-    [~,~,testCosti{i},testLati{i}, ~] = my_rollout(mu0, policy, H, plant, robot);
+    [~,~,testCosti{i},testLati{i}] = bench_rollout(gaussian(mu0, S0), struct('maxU',policy.maxU), H, plant, cost); %#ok<*IJCL>
 
     lengthDiff = H-size(testCosti{i},1);
     if lengthDiff==0                           % rollout was completed

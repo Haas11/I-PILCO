@@ -39,7 +39,13 @@ function [L, dLdm, dLds, S, dSdm, dSds, C, dCdm, dCds] = my_lossAdd2(cost, m, s,
 %% Code
 
 % Dimensions and Initializations
-Nlos = length(cost.sub);                D = length(m);
+Nlos = length(cost.sub);                
+D = length(m);
+% if nargin>6
+%     plant = varargin{7};
+%     D = length(m)+2*length(plant.angi);
+% end
+
 L = 0;              S = 0;              C = zeros(D,1);
 dLdm = zeros(1,D);  dSdm = zeros(1,D);  dLds = zeros(1,D^2);
 dCdm = zeros(D);    dCds = zeros(D,D^2);%dSds = zeros(D);
@@ -61,15 +67,16 @@ for n = 1:Nlos                              % Loop over each of the sub-function
         [Li, Ldm, Lds, Si, Sdm, Sds, Ci, Cdm, Cds] = costi.fcn(costi, m(i), s(i,i));
         
         L = L + Li;                                 % loss mean
-        S = S + Si + Ci'*s(i,:)*C + C'*s(:,i)*Ci;   % loss variance         V(a+b) = V(a)+V(b)+C(a,b)+C(b,a)    (desired in calcCost)
-        
+%         S = S + Si + Ci'*s(i,:)*C + C'*s(:,i)*Ci;   % loss variance         V(a+b) = V(a)+V(b)+C(a,b)+C(b,a)    (desired in calcCost)
+
         dLdm(i) = dLdm(i) + Ldm;                    % derivative of mean loss wrt mean state
         
         dLds_matrix(i,i) = dLds_matrix(i,i) + reshape(Lds,length(i),length(i));
         dLds = reshape(dLds_matrix,1,D^2);          % derivative of mean loss wrt variance state
         
-        Cis = Ci'*(s(i,:) + s(:,i)');
-        Cs = C'*(s(:,i) + s(i,:)');
+        Cis = Ci'*(s(:,:) + s(:,:)');
+        Cs = C'*(s(:,:) + s(:,:)');        
+        
         
         dSdm(i) = dSdm(i) + Sdm + Cs*Cdm;
         dSdm    = dSdm + Cis*dCdm;                  % derivative of variance loss wrt mean state        --> used for exploration
@@ -116,7 +123,8 @@ if isfield(cost,'ep') && cost.ep ~= 0
         dsads = varargin{6};                            % deriv of control variance w.r.t. policy input variance    [nU^2 x lpoli^2]
         plant = varargin{7};        
         dyno  = plant.dyno;     poli = plant.poli; 
-        ldyno = length(dyno);   nU = length(ma);                
+        ldyno = length(dyno);   nU = length(ma);         
+%         D=4;
         X = reshape(1:D*D,[D D]);
         i = poli; I=0*X; I(i,i)=1; ii=X(I==1)';         % ii = column numbers corresponding to relevant policy input states
             

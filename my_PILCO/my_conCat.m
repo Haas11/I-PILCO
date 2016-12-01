@@ -1,4 +1,3 @@
-
 %% concat.m
 % *Summary:* Compute a control signal $u$ from a state distribution
 % $x\sim\mathcal N(x|m,s)$. Here, the predicted control distribution
@@ -57,10 +56,7 @@ D=length(m);      % dimension of input
 % pre-compute some indices
 F=D+E; j=D+1:F; i=1:D;
 % initialize M and S
-M = zeros(F,1);
-M(i) = m;
-S = zeros(F);
-S(i,i) = s;
+M = zeros(F,1); M(i) = m; S = zeros(F); S(i,i) = s;
 
 if nargout < 4   % without derivatives
     [M(j), S(j,j), Q] = con(policy, m, s);  % compute unsquashed control signal v    
